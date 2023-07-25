@@ -70,7 +70,6 @@ class DatasetFormation():
         self.scaler = StandardScaler()
         self.seat_scaler = StandardScaler()
         self.date_scaler = MinMaxScaler()
-        # self.date_scaler = StandardScaler()
         self.seq_len = sequence_length
         self.n_future = pred_num_quarters
         self.start_year = start_year
@@ -103,6 +102,11 @@ class DatasetFormation():
 
         self.init_missing_airports()
         self.init_al_info()
+
+        # Create export data folder
+        if not os.path.isdir('./data'):
+                os.mkdir('./data')
+        self.data_root = './data/'
 
     def init_missing_airports(self):
         self.missing_airports = {
@@ -182,24 +186,6 @@ class DatasetFormation():
             'G4': ['LAS', 'SFB', 'PGD'],  # Allegiant Air
         }
 
-        # self.al_class = {
-        #     'UA': 1.0,
-        #     'AA': 1.0,
-        #     'DL': 1.0,
-        #     'AS': 0.6,
-        #     'WN': 0.6,
-        #     'F9': 0.5,
-        #     'NK': 0.5,
-        #     'B6': 0.4,
-        #     'G4': 0.4,
-        #     'CO': 0.1,
-        #     'NW': 0.1,
-        #     'VX': 0.1,
-        #     'FL': 0.1,
-        #     'US': 0.1,
-        #     'YX': 0.1
-        # }
-
         self.al_class = {
             'UA': 1,
             'AA': 1,
@@ -237,9 +223,6 @@ class DatasetFormation():
 
         self.attach_coordinates()
         print("The airports coordinates are calculated.")
-
-        # self.create_embedding_features()
-        # print("The embeddings are created.")
 
         self.assign_airline_features()
         print("The airline features are assigned.")
@@ -342,8 +325,11 @@ class DatasetFormation():
         self.le_airports.fit(self.unique_airports)
         self.le_airlines.fit(self.unique_airlines)
 
-        joblib.dump(self.le_airports, 'le_airports.pkl')
-        joblib.dump(self.le_airlines, 'le_airlines.pkl')
+        # Save the LabelEncoders
+        le_airports_root = self.data_root + 'le_airports.pkl'
+        le_airlines_root = self.data_root + 'le_airlines.pkl'
+        joblib.dump(self.le_airports, le_airports_root)
+        joblib.dump(self.le_airlines, le_airlines_root)
 
         # Create a column of encoded airports and airlines
         self.df['orig_code'] = self.le_airports.transform(self.df['Orig'])
@@ -382,45 +368,11 @@ class DatasetFormation():
         self.df['dest_lon'] = self.df['dest_coord'].apply(lambda x: x[1])
         self.df = self.df.drop(['orig_coord', 'dest_coord'], axis=1)
 
-    def create_embedding_features(self, al_feature_size=2, ap_feature_size=3):
-        """
-        STOP USING THIS FUNCTION.
-        Create embedding features for airlines and airports.
-        """
-        self.al_embeddings = nn.Embedding(len(self.unique_airlines), al_feature_size)
-        self.ap_embeddings = nn.Embedding(len(self.unique_airports), ap_feature_size)
-
-        al_data = torch.tensor(self.df['al_code'].values)
-        orig_data = torch.tensor(self.df['orig_code'].values)
-        dest_data = torch.tensor(self.df['dest_code'].values)
-
-        al_embed = self.al_embeddings(al_data)
-        orig_embed = self.ap_embeddings(orig_data)
-        dest_embed = self.ap_embeddings(dest_data)
-
-        # Concatenate the embedding vectors and add columns to the dataframe
-        embed_vector = torch.cat((al_embed, orig_embed, dest_embed), 1)
-        embed_vector_array = embed_vector.detach().numpy()
-        embed_vector_df = pd.DataFrame(embed_vector_array)
-        embed_vector_df.columns = ['al_embed_1', 'al_embed_2', 'orig_embed_1', 'orig_embed_2', 'orig_embed_3', 'dest_embed_1', 'dest_embed_2', 'dest_embed_3']
-        self.df = pd.concat([self.df, embed_vector_df], axis=1)
-
-        # Create mapping dictionaries
-        self.al_embedding_dict = {al: emb for al, emb in zip(self.unique_airlines, self.al_embeddings.weight.detach().numpy())}
-        self.ap_embedding_dict = {ap: emb for ap, emb in zip(self.unique_airports, self.ap_embeddings.weight.detach().numpy())}
-
-        # Write data to CSV files
-        pd.DataFrame([(k, *v.tolist()) for k, v in self.al_embedding_dict.items()]).to_csv("al_embedding.csv", index=False)
-        pd.DataFrame([(k, *v.tolist()) for k, v in self.ap_embedding_dict.items()]).to_csv("ap_embedding.csv", index=False)
-
-        # print("Embedding features created.")
-
     def assign_airline_features(self):
         """
         Assign airline features to the dataframe.
         Includes: 'If legacy carrier'; If Hub;
         """
-        # self.df['if_legacy'] = self.df['Mkt Al'].apply(lambda x: 1 if x in self.legacy_carriers else 0)
         # If hub:
         self.df['if_hub'] = self.df.apply(self.is_hub, axis=1)
 
@@ -480,8 +432,6 @@ class DatasetFormation():
 
     def calculate_market_share(self):
         # Calculate the market share of each airline per route
-        # self.df['mkt_share'] = self.df.groupby(['year', 'quarter', 'Orig', 'Dest'])['Pax/Day'].transform(lambda x: x / x.sum())
-
         sum_pax = self.df.groupby(['year', 'quarter', 'Orig', 'Dest'])['Pax/Day'].transform('sum')
         self.df['mkt_share'] = self.df['Pax/Day'] / sum_pax
 
@@ -493,26 +443,14 @@ class DatasetFormation():
         """
         This function splits the data into training and validation sets.
         """
-
         boundary_num = int(boundary_quarter.split(' ')[1]) * 4 + int(boundary_quarter.split(' ')[0][1])
 
-        # self.year_split = int(train_size * (self.end_year - self.start_year) + self.start_year)
-        # self.year_split = 2021
-        # self.train_df = self.df[self.df['year'] <= str(self.year_split)]
-        # self.train_df = self.df[self.df['year'] >= str(self.start_year)]
         self.train_df = self.df[self.df['SortDate'] <= boundary_num].copy()
 
         # limit the begin year of the training data
         self.train_df = self.train_df[self.train_df['year'] >= str(self.start_year)]
         # reset the index
         self.train_df.reset_index(drop=True, inplace=True)
-
-        # Needed to be updated
-        # This part is not right since to predict 2022 data.
-        # For 2022 Q1, Q2 data, if trained 10 quarters to predict, 
-        # then the data needed is 2019(2), 2020(4), 2021(4)
-        # For 2022 Q3, Q4 data, if trained 10 quarters to predict, 
-        # then the data needed is 2020(4), 2021(4), 2022(2)
 
         test_boundary_num = int(test_boundary_quarter.split(' ')[1]) * 4 + int(test_boundary_quarter.split(' ')[0][1])
 
@@ -558,22 +496,12 @@ class DatasetFormation():
             self.scaled_df['time_scaled'] = self.date_scaler.fit_transform(self.scaled_df['Date_delta'].values.reshape(-1,1))
         else:
             print("The dataset has not been scaled yet.")
-        #     if self.scaled_df is not None:
-        #         # Split the quarter and year, map the quarter to a month and create a correct datetime string
-        #         self.scaled_df['Date_delta'] = self.scaled_df['Date'].apply(lambda x: pd.to_datetime(self.quarter_mapping[x.split(' ')[0]]+'/01/'+x.split(' ')[1])) # Note: Check if this is correct
-        #         # Convert the date to a numeric value
-        #         self.scaled_df['Date_delta'] = (self.scaled_df['Date_delta'] - pd.Timestamp(relative_date)) // pd.Timedelta('1s')
-        #         # Shrinking the date value to a smaller range
-        #         self.scaled_df['Date_delta'] = self.scaled_df['Date_delta'] / 100000
-
-        #         # Sclaing the date feature
-        #         self.scaled_df['time_scaled'] = self.date_scaler.fit_transform(self.scaled_df['Date_delta'].values.reshape(-1,1))
-        #     else:
-        #         print("The dataset has not been scaled yet.")
 
     def load_scaled_data(self, train_filename='training_data.csv', scaled_filename='scaled_data.csv'):
-        self.train_df = pd.read_csv(train_filename)
-        self.scaled_df = pd.read_csv(scaled_filename)
+        # self.train_df = pd.read_csv(train_filename)
+        self.train_df = pd.read_csv(self.data_root + train_filename)
+        # self.scaled_df = pd.read_csv(scaled_filename)
+        self.scaled_df = pd.read_csv(self.data_root + scaled_filename)
         print("Scaled data loaded.")
 
         # rebuild the main scaler
@@ -588,38 +516,33 @@ class DatasetFormation():
         self.date_scaler.fit(self.scaled_df['Date_delta'].values.reshape(-1,1))
 
         # Load the LabelEncoders
-        self.le_airports = joblib.load('le_airports.pkl')
-        self.le_airlines = joblib.load('le_airlines.pkl')
+        le_airports_root = self.data_root + 'le_airports.pkl'
+        le_airlines_root = self.data_root + 'le_airlines.pkl'
+        self.le_airports = joblib.load(le_airports_root)
+        self.le_airlines = joblib.load(le_airlines_root)
 
     def create_dim_mapping(self):
         # cat_features = ['Mkt Al', 'Orig', 'Dest', 'al_type', 'state_o', 'state_d']
         # numerical features
-        # self.num_features = [f for f in self.x_features if f not in self.cat_features]
-
         # Mapping for each categorical feature to its unique values
         self.cat_mapping = {f: list(set(self.scaled_df[f])) for f in self.cat_features}
         # make sure all 'al_code' and 'orig_code' and 'dest_code' are in the mapping
         self.cat_mapping['al_code'] = [i for i in range(len(self.le_airlines.classes_))]
         
         # Update the mapping for 'orig_code' and 'dest_code' to reflect the label encoder's classes
-        
         self.cat_mapping['orig_code'] = [i for i in range(len(self.le_airports.classes_))]
         self.cat_mapping['dest_code'] = [i for i in range(len(self.le_airports.classes_))]
-        # self.cat_mapping['al_code'] = list(self.le_airlines.classes_)
 
         # Mapping for each categorical feature to its number of unique values
         self.embed_dim_mapping = {f: min(6, len(unique_values)//2*2) for f, unique_values in self.cat_mapping.items()}
         
-
         # Save the mapping to a file
-        with open('cat_mapping.pkl', 'wb') as f:
+        cat_mapping_root = self.data_root + 'cat_mapping.pkl'
+        with open(cat_mapping_root, 'wb') as f:
             pickle.dump(self.cat_mapping, f)
-        with open('embed_dim_mapping.pkl', 'wb') as f:
+        embed_dim_mapping_root = self.data_root + 'embed_dim_mapping.pkl'
+        with open(embed_dim_mapping_root, 'wb') as f:
             pickle.dump(self.embed_dim_mapping, f)
-
-        # # Load the mappings
-        # with open("cat_mapping.pkl", "rb") as f:
-        #     cat_mapping = pickle.load(f)
 
     def final_preparation(self):
         if self.year_split is None:
@@ -643,41 +566,22 @@ class DatasetFormation():
             self.full_df = torch.utils.data.ConcatDataset(datasets)
         else:
             print("The dataset has not been scaled yet.")
-  
-    def print_data(self, scaled=False, num_rows=5):
-
-        if not scaled:
-            # print the columns of the dataset
-            print("The columns of the dataset are:")
-            print(self.df.columns)
-
-            # print the first num_rows rows of the dataset
-            print("The first {} rows of the dataset are:".format(num_rows))
-            print(self.df.head(num_rows))
-            print("-" * 50)
-        elif self.scaled_df is not None:
-            # print the columns of the dataset
-            print("The columns of the dataset are:")
-            print(self.scaled_df.columns)
-
-            # print the first num_rows rows of the dataset
-            print("The first {} rows of the dataset are:".format(num_rows))
-            print(self.scaled_df.head(num_rows))
-            print("-" * 50)
-        else:
-            print("The dataset has not been scaled yet.")
 
     def save_data(self, file_name="dataset_for_analysis.csv"):
+        file_name = self.data_root + file_name
         self.df.to_csv(file_name, index=False)
         print("The dataset is saved as {}.".format(file_name))
 
     def save_scaled_data(self, filename="scaled_data.csv"):
+        filename = self.data_root + filename
         self.scaled_df.to_csv(filename, index=False)
     
     def save_trainning_data(self, filename="training_data.csv"):
+        filename = self.data_root + filename
         self.train_df.to_csv(filename, index=False)
 
     def save_testing_data(self, filename="testing_data.csv"):
+        filename = self.data_root + filename
         self.test_df.to_csv(filename, index=False)
 
 
@@ -958,7 +862,7 @@ class MSELossWithPenalty(nn.Module):
 
 def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10, 
           epochs=10, momentum=0.95, save_model=False, resume_training=False,
-          MSE=True):
+          MSE=True, checkpoint_file_name='checkpoint.pth'):
     
     net = net.to(device)
 
@@ -972,11 +876,12 @@ def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10,
     # Define the Adam optimizer
     optimizer =torch.optim.AdamW(net.parameters(), lr=lr, weight_decay=1e-6, betas=(momentum, 0.999))
     if resume_training:
-        checkpoint = torch.load('./checkpoint/checkpoint.pth')
+        checkpoint_file_name = './checkpoint/' + checkpoint_file_name
+        checkpoint = torch.load(checkpoint_file_name)
         net.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         start_epoch = checkpoint['epoch'] - 1
-        print("Resuming training from epoch {}.".format(start_epoch))
+        print("Resuming training from epoch {}.".format(start_epoch+1))
         epochs = epochs + start_epoch + 1
 
     # Record the training loss every 50 iterations
@@ -1022,8 +927,6 @@ def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10,
 
             loss.backward()  # Backward pass            
             optimizer.step() # Update the parameters
-
-            # print(loss.item()) # Print the loss only for debugging purposes
 
             # Print statistics
             running_loss += loss.item()
@@ -1188,6 +1091,8 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         seq_num = args.seq_num # number of quarters in a sequence
         if_add_time_info = args.if_add_time_info # if add time information
 
+        checkpoint_file_name = args.checkpoint_file_name
+
         # Set NN parameters
         learning_rate = args.learning_rate
         momentum = args.momentum
@@ -1211,11 +1116,12 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
     print("-------- Start ----------")
 
     # Check if "training_data.csv", "testing_data.csv" and "scaled_data.csv" exist
-    if (not os.path.exists("training_data.csv") or 
-        not os.path.exists("testing_data.csv") or 
-        not os.path.exists("scaled_data.csv")):
+    if (not os.path.exists("./data/training_data.csv") or 
+        not os.path.exists("./data/testing_data.csv") or 
+        not os.path.exists("./data/scaled_data.csv")):
         debug = False
     else:
+        print("Data is created before! Will load them.")
         debug = True
 
     # Set random seed
@@ -1268,7 +1174,8 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
     train_loss, iter_record = train(dataloader, net, seat_scaler=data_format.seat_scaler ,lr=learning_rate, 
                                     device=device, batch_size=batch_size, epochs=epochs, momentum=momentum, 
                                     save_model=True, resume_training=resume_training,
-                                    MSE=(MSE_or_GaussianNLLLoss == "MSE"))
+                                    MSE=(MSE_or_GaussianNLLLoss == "MSE"),
+                                    checkpoint_file_name=checkpoint_file_name)
 
     # Plot the training loss
     plt.plot(iter_record, train_loss, label="Training loss")
@@ -1278,8 +1185,8 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
 
     # Define the fig name based on the parameters
     fig_name = f"lr_{learning_rate}_momentum_{momentum}_batch_size_{batch_size}_epochs_{epochs}.png"
+    fig_name = data_format.data_root + fig_name
     plt.savefig(fig_name)
-    # plt.savefig("training_loss.png")
     plt.show()
 
     # calculate the time used in minutes
@@ -1299,21 +1206,22 @@ if __name__ == "__main__":
         parameters = {
             "resume_training": False,
             "MSE_or_GaussianNLLLoss": "MSE",
-            "pred_num_quarters": 3,
+            "pred_num_quarters": 4,
             "seq_num": 10,
             "if_add_time_info": False,
-            "learning_rate": 0.00001,
+            "learning_rate": 1e-04,
             "momentum": 0.95,
             "batch_size": 32,
-            "epochs": 1,
-            "num_workers": 1,
+            "epochs": 20,
+            "num_workers": 4,
             "shuffle": True,
             "fixed_seed": True,
             "rnn_type": "LSTM",
             "n_layers": 4,
-            "drop_prob": 0.3,
+            "drop_prob": 0.35,
             "num_heads": 6,
-            "start_year": 2016,
+            "start_year": 2004,
+            "checkpoint_file_name": "checkpoint.pth",
         }
         with open('parameters.json', 'w') as f:
             json.dump(parameters, f)
