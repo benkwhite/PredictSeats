@@ -2,3 +2,4 @@ data/
 results/
 model/
 __pycache__/
+./parameters.json
