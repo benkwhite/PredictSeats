@@ -2,4 +2,5 @@ data/
 results/
 model/
 __pycache__/
-./parameters.json
+/parameters.json
+.ipynb_checkpoints/
