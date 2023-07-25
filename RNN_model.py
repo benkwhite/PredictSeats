@@ -4,14 +4,9 @@ Create a training model for RNN
 
 """
 Update:
-Go back to embedding application
-
-Try to do:
-
-
-The place need to updated when adding features to the model 
-
-
+Combine all validatio python files into one file.
+Try 4 quarters.
+Add the export folder
 """
 
 # Importing the libraries
