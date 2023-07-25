@@ -261,12 +261,13 @@ class FlightDataset(Dataset):
         return torch.from_numpy(sequence_data), cat_sequence_data, torch.tensor(target_data), time_range, loc_key
     
 
-def validation(loader, net, seat_scaler, device='cpu', n_times=10, MSE=True):
+def validation(loader, net, seat_scaler, device='cpu', n_times=1, MSE=True):
     # Set the network to evaluation mode
     net = net.to(device) 
 
     if MSE:
-        net.train()
+        # net.train()
+        net.eval()
     else:
         net.eval()
 
@@ -474,6 +475,29 @@ def route_dict_to_df(route_dict):
     
     return df 
 
+
+def find_best_routes():
+    df = pd.read_csv('./results/data_to_ana_apply.csv')
+
+    # Assuming df is your DataFrame
+    df['percentage_error'] = abs(df['Seats'] - df['pred']) / df['Seats'] * 100
+
+    # Calculate the average percentage error for each route
+    average_error = df.groupby(['Mkt Al', 'Orig', 'Dest'])['percentage_error'].mean().reset_index()
+    average_error.columns = ['Mkt Al', 'Orig', 'Dest', 'average_percentage_error']
+
+    # Merge average_error back into the original dataframe
+    df = pd.merge(df, average_error, how='left', on=['Mkt Al', 'Orig', 'Dest'])
+
+    # Group by 'Mkt Al', 'Orig' and 'Dest' and filter groups where all percentage errors are less than 5%
+    def all_less_than_5_percent(x):
+        return (x < 5).all()
+
+    filtered_df = df.groupby(['Mkt Al', 'Orig', 'Dest']).filter(lambda x: all_less_than_5_percent(x['percentage_error']))
+
+    # Get unique routes
+    best_route = filtered_df[['Mkt Al', 'Orig', 'Dest']].drop_duplicates().reset_index(drop=True)
+    best_route.to_csv('./results/best_route.csv', index=False)
 
 # inherit the DataAna Class
 class DataAna():
@@ -823,7 +847,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         seq_num=10
         if_add_time_info=False
         n_layers=4
-        drop_prob=0.2
+        drop_prob=0.00001
         num_heads=6
 
     else:
@@ -837,7 +861,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         rnn_type = args.rnn_type
         n_layers = args.n_layers
         # drop_prob = args.drop_prob
-        drop_prob = 0.3
+        drop_prob = 0.00001
         num_heads = args.num_heads
 
         # start_year = args.start_year
@@ -917,12 +941,26 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     ana = DataAna(ana_df_name)
     ana.merge_previous_data(orig_df)
 
-    ana.plot_prediction('AA', 'LAXSFO')
-    ana.plot_prediction('DL', 'ATLSFO')
-    ana.plot_prediction('F9', 'DENLAS')
-    # ana.plot_prediction('AA', 'ATLDFW')
-    ana.plot_prediction('AA', 'DENDFW')
-    ana.plot_prediction('AA', 'ATLPHL')
+    # ana.plot_prediction('AA', 'LAXSFO')
+    # ana.plot_prediction('DL', 'ATLSFO')
+    # ana.plot_prediction('F9', 'DENLAS')
+    # # ana.plot_prediction('AA', 'ATLDFW')
+    # ana.plot_prediction('AA', 'DENDFW')
+    # ana.plot_prediction('AA', 'ATLPHL')
+
+    find_best_routes() # find the best routes
+    
+    while True:
+        user_input = input("Enter airline and route, separated by comma, or 'c' to exit: ")
+        if user_input.lower() == 'c':
+            break
+        try:
+            airline, route = user_input.split(',')
+            airline = airline.strip()  # remove possible leading/trailing whitespaces
+            route = route.strip()  # remove possible leading/trailing whitespaces
+            ana.plot_prediction(airline, route)
+        except ValueError:
+            print("Invalid input, please enter the airline and route separated by a comma or 'continue' to proceed.")
 
 
     # record the end time
@@ -930,6 +968,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     time_used = (end_time - start_time) / 60
     print(f"Time used: {time_used} minutes")
     print("-------- End ----------")
+
 
 if __name__ == "__main__":
     # Set basic parameters

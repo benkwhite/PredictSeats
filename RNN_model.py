@@ -967,7 +967,8 @@ def evaluate_model(loader, net, seat_scaler, device="cpu", MSE=True, n_times=1):
     if not MSE:
         net.eval()
     else:
-        net.train()
+        # net.train()
+        net.eval()
 
     all_outputs = []
     all_seats = []
