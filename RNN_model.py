@@ -1080,7 +1080,9 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         drop_prob=0.3
         num_heads=6
 
-        start_year = 2016
+        start_year = 2004
+
+        checkpoint_file_name = "checkpoint.pth"
     else:
         print("Using the provided arguments.")
         # Control if resume training

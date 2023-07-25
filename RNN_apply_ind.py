@@ -22,7 +22,7 @@ import matplotlib.patches as mpatches
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from RNN_model import DatasetFormation, RNNNet, collate_fn, compute_error_table, calculate_quarters
-from RNN_ana import DataAna
+# from RNN_ana import DataAna
 
 
 # Inherit the DatasetFormation class
@@ -30,13 +30,18 @@ class Validation(DatasetFormation):
     def __init__(self, folder_path, seats_file_name, perf_file_name, x_features, apply_file_name, *args, **kwargs):
         super().__init__(folder_path, seats_file_name, perf_file_name, x_features, *args, **kwargs)
 
-        self.le_airports = joblib.load('le_airports.pkl')
-        self.le_airlines = joblib.load('le_airlines.pkl')
+        # Load the label encoder
+        le_airports_root = self.data_root + 'le_airports.pkl'
+        le_airlines_root = self.data_root + 'le_airlines.pkl'
+        self.le_airports = joblib.load(le_airports_root)
+        self.le_airlines = joblib.load(le_airlines_root)
         
         # Load the mappings
-        with open("cat_mapping.pkl", "rb") as f:
+        cat_mapping_root = self.data_root + 'cat_mapping.pkl'
+        with open(cat_mapping_root, "rb") as f:
             self.cat_mapping = pickle.load(f)
-        with open("embed_dim_mapping.pkl", "rb") as f:
+        embed_dim_mapping_root = self.data_root + 'embed_dim_mapping.pkl'
+        with open(embed_dim_mapping_root, "rb") as f:
             self.embed_dim_mapping = pickle.load(f)
         print("Dimension mapping loaded.")
 
@@ -89,14 +94,15 @@ class Validation(DatasetFormation):
         self.test_df.reset_index(drop=True, inplace=True)
 
         # save the test data
-        self.test_df.to_csv('applying_data.csv', index=False)
+        apply_file_save_root = self.data_root + 'apply_data.csv'
+        self.test_df.to_csv(apply_file_save_root, index=False)
 
         print("The test data is created.")
 
-    def load_scaled_data_val(self, train_filename='training_data.csv', 
-                             test_filename='testing_data.csv', 
-                             scaled_filename='scaled_data.csv', 
-                             apply_filename='applying_data.csv',
+    def load_scaled_data_val(self, train_filename='./data/training_data.csv', 
+                             test_filename='./data/testing_data.csv', 
+                             scaled_filename='./data/scaled_data.csv', 
+                             apply_filename='./data/applying_data.csv',
                              load_apply_data=True,
                              test_date='Q1 2021'):
         # load the original training data first to get the scaler
@@ -198,6 +204,7 @@ class Validation(DatasetFormation):
         self.full_df = torch.utils.data.ConcatDataset(datasets)
 
     def save_scaled_data_val(self, filename='scaled_data_apply.csv'):
+        filename = self.data_root + filename
         self.scaled_df.to_csv(filename, index=False)
         print("Scaled applying data saved.")
 
@@ -382,7 +389,7 @@ def validation(loader, net, seat_scaler, device='cpu', n_times=10, MSE=True):
     # compute_error_table Needs update
 
     # Save the error table
-    error_table_filename = 'error_table_apply.csv'
+    error_table_filename = './results/error_table_apply.csv'
     final_error_table.to_csv(error_table_filename, index=False)
 
     print(final_error_table)
@@ -469,11 +476,71 @@ def route_dict_to_df(route_dict):
 
 
 # inherit the DataAna Class
-class DataAna(DataAna):
+class DataAna():
     def __init__(self, ana_df_name):
-        super().__init__(ana_df_name)
+        self.df = pd.read_csv(ana_df_name, index_col=0)
+        self.competitors_quartiles = None
+        self.seats_quartiles = None
+        self.df_plot = self.df.copy()
+
         self.boundary_quarter = "Q1 2023"
         self.boundary_num = int(self.boundary_quarter.split(' ')[1]) * 4 + int(self.boundary_quarter.split(' ')[0][1])
+
+    def group_by_direction(self, group_bi_direction=True, seat_sum=False):
+        if group_bi_direction:
+            # Create a new column named 'route' containing sorted origin and destination
+            self.df['route'] = self.df.apply(lambda row: ''.join(sorted([row['Orig'], row['Dest']])), axis=1)
+            # Drop the 'Orig' and 'Dest' columns
+            self.df = self.df.drop(columns=['Orig', 'Dest'])
+            # Group by 'Mkt Al' (airline) and 'route', then aggregate by taking mean values for numerical columns
+            grouped_df = self.df.groupby(['Mkt Al', 'route', 'Date']).mean().reset_index()
+
+            if seat_sum:
+                # We should sum up the 'Flights' and 'Seats' values after taking average as per your requirement
+                flights_seats_df = self.df.groupby(['Mkt Al', 'route', 'Date'])[['Flights', 'Seats', 'pred']].sum().reset_index()
+                # Merge the summed 'Flights' and 'Seats' back into the grouped_df
+                grouped_df = pd.merge(grouped_df, flights_seats_df, on=['Mkt Al', 'route', 'Date'], suffixes=('', '_sum'))
+                grouped_df['Flights'] = grouped_df['Flights_sum']
+                grouped_df['Seats'] = grouped_df['Seats_sum']
+                grouped_df.drop(['Flights_sum', 'Seats_sum'], axis=1, inplace=True)
+        else:
+            self.df['route'] = self.df['Orig'] + self.df['Dest']
+            grouped_df = self.df.copy()
+            
+        self.df = grouped_df.copy()
+
+    def calculate_competitors(self):
+        # Count the unique 'Mkt Al' (airlines) per 'route'
+        competitors_df = self.df.groupby(['route', 'Date'])['Mkt Al'].nunique().reset_index()
+        competitors_df.columns = ['route', 'Date', 'Competitors']
+
+        # Merge the competitors_df back into the original df
+        self.df = pd.merge(self.df, competitors_df, on=['route','Date'], how='left')
+
+    def classify_market_size(self):
+        self.seats_quartiles = self.df['Seats'].quantile([.25, .5, .75]).values
+        def market_size(seats):
+            if seats <= self.seats_quartiles[0]:
+                return 'tiny'
+            elif seats <= self.seats_quartiles[1]:
+                return 'small'
+            elif seats <= self.seats_quartiles[2]:
+                return 'large'
+            else:
+                return 'super'
+        self.df['market_size'] = self.df['Seats'].apply(market_size)
+
+    def classify_competitors(self, col_name='Competitors'):
+        # We are assuming that df['Competitors'] is the number of competitors
+        self.competitors_quartiles = self.df[col_name].quantile([.33, .66]).values
+        def competition_level(competitors):
+            if competitors <= self.competitors_quartiles[0]:
+                return 'Few'
+            elif competitors <= self.competitors_quartiles[1]:
+                return 'Gen'
+            else:
+                return 'High'
+        self.df['competition_level'] = self.df[col_name].apply(competition_level)
 
     def merge_previous_data(self, orig_df, if_group_bi_direction=True):
         """
@@ -499,10 +566,6 @@ class DataAna(DataAna):
         self.df.drop(columns=['year', 'quarter'], inplace=True)
 
         self.group_by_direction(group_bi_direction=if_group_bi_direction, seat_sum=False)
-        # self.remove_other_parameters()
-
-        # Drop `Flights` and  `num_comp` column
-        # self.df.drop(columns=['Flights', 'num_comp'], inplace=True)
 
         # Sort the dataframe by route and date
         self.df.sort_values(by=['Mkt Al', 'route', 'Date'], inplace=True)
@@ -515,7 +578,7 @@ class DataAna(DataAna):
         self.classify_market_size()
         self.calculate_metrics_new()
 
-        self.df.to_csv("data_after_ana_app.csv", index=False)
+        self.df.to_csv("./results/data_after_ana_app.csv", index=False)
 
     def calculate_metrics_new(self, pivot=False):
         """
@@ -559,7 +622,7 @@ class DataAna(DataAna):
             result_df = result_df.pivot_table(index='Metric', columns=['competition_level', 'market_size'], values='Value')
 
         # save the result
-        result_df.to_csv("result_apply.csv", index=False)
+        result_df.to_csv("./results/result_apply.csv", index=False)
 
         return result_df
     
@@ -659,7 +722,7 @@ class DataAna(DataAna):
 
     def plot_prediction_n(self, al, alpha):
         """
-        Use it after run calculate_metrics_new
+        Only needed one plot one quarter
         """
         # Capitalize the input
         al = al.upper()
@@ -746,6 +809,10 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
               'collate_fn': collate_fn}
     validation_type = 'Val'
 
+    # create a result folder if not exist
+    if not os.path.exists('results'):
+        os.makedirs('results')
+
     if args is None:
         print("Using default parameters since no arguments are provided.")
         # resume_training=False
@@ -758,7 +825,6 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         drop_prob=0.2
         num_heads=6
 
-        # start_year = 2016
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -799,7 +865,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
                              pred_num_quarters=pred_num_quarters)
 
     # Check if 'applying_data.csv' exists
-    applying_data_path = 'applying_data.csv'
+    applying_data_path = data_format.data_root + 'applying_data.csv'
     if os.path.exists(applying_data_path):
         print("Applying data exists, will load it")
         load_apply_data = True
@@ -807,7 +873,16 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         print("Applying data does not exist, will create it")
         load_apply_data = False
     boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num)
-    data_format.load_scaled_data_val(load_apply_data=load_apply_data, test_date=apply_data_boundary)
+    
+    train_filename = data_format.data_root + 'training_data.csv' 
+    scaled_filename = data_format.data_root + 'scaled_data.csv' 
+    apply_filename = data_format.data_root + 'applying_data.csv'
+    
+    data_format.load_scaled_data_val(train_filename= train_filename,
+                                     scaled_filename=scaled_filename,
+                                     apply_filename=apply_filename,
+                                     load_apply_data=load_apply_data, 
+                                     test_date=apply_data_boundary)
     # test data is test data starting date. 
     full_dataset = data_format.full_df
 
