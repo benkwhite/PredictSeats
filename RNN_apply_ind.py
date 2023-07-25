@@ -919,7 +919,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
              input_dim=input_dim, hidden_dim=300, output_dim=pred_num_quarters,
              n_layers=n_layers, drop_prob=drop_prob, rnn_type=rnn_type,
              bidirectional=True, num_heads=num_heads, 
-             if_skip=True, if_feed_drop=True, if_feed_norm=True)
+             if_skip=True, if_feed_drop=True, if_feed_norm=True,
+             MSE=(MSE_or_GaussianNLLLoss=='MSE'))
 
     # load the model
     # model_path = r'C:\Users\qilei.zhang\OneDrive - Frontier Airlines\Documents\VSCode\SeatPredict\model.pth'
