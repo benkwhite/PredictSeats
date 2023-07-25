@@ -94,7 +94,7 @@ class Validation(DatasetFormation):
         self.test_df.reset_index(drop=True, inplace=True)
 
         # save the test data
-        apply_file_save_root = self.data_root + 'apply_data.csv'
+        apply_file_save_root = self.data_root + 'applying_data.csv'
         self.test_df.to_csv(apply_file_save_root, index=False)
 
         print("The test data is created.")
@@ -715,7 +715,8 @@ class DataAna():
 
         # Save the plot
         plt.tight_layout() # This ensures that all labels are visible in the saved file
-        plt.savefig(f'{al}_{alpha}_ind.png', dpi=300) # Set dpi for higher resolution
+        fig_name = './results/' + f'{al}_{alpha}_ind.png'
+        plt.savefig(fig_name, dpi=300) # Set dpi for higher resolution
 
         # Display the plot
         plt.show()
@@ -898,7 +899,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
 
     # load the model
     # model_path = r'C:\Users\qilei.zhang\OneDrive - Frontier Airlines\Documents\VSCode\SeatPredict\model.pth'
-    model_path = r'model.pth'
+    model_path = r'./model/model.pth'
     net.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     print("Model loaded")
 
@@ -909,7 +910,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     route_dict = create_route_dict(outputs, seats, stds, keys)
     orig_df = data_format.test_df
     route_df = route_dict_to_df(route_dict)
-    ana_df_name = "data_to_ana_apply.csv"
+    ana_df_name = "./results/data_to_ana_apply.csv"
     route_df.to_csv(ana_df_name)
 
     # Create the DataAna object

@@ -938,7 +938,9 @@ def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10,
         
         # Save the model
         if save_model:
-            torch.save(net.state_dict(), 'model.pth')
+            if not os.path.isdir('./model'):
+                os.mkdir('./model')
+            torch.save(net.state_dict(), './model/model.pth')
 
         # save the checkpoint every 5 epochs
         if epoch % 5 == 4:
