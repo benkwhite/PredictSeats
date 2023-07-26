@@ -849,6 +849,10 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         n_layers=4
         drop_prob=0.00001
         num_heads=6
+        bidirectional = True
+        if_skip = True
+        if_feed_drop = True
+        if_feed_norm = True
 
     else:
         print("Using the provided arguments.")
@@ -863,6 +867,11 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         # drop_prob = args.drop_prob
         drop_prob = 0.00001
         num_heads = args.num_heads
+
+        bidirectional = args.bidirectional
+        if_skip = args.if_skip
+        if_feed_drop = args.if_feed_drop
+        if_feed_norm = args.if_feed_norm
 
         # start_year = args.start_year
 
@@ -918,8 +927,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
              embed_dim_mapping=data_format.embed_dim_mapping,
              input_dim=input_dim, hidden_dim=300, output_dim=pred_num_quarters,
              n_layers=n_layers, drop_prob=drop_prob, rnn_type=rnn_type,
-             bidirectional=True, num_heads=num_heads, 
-             if_skip=True, if_feed_drop=True, if_feed_norm=True,
+             bidirectional=bidirectional, num_heads=num_heads, 
+             if_skip=if_skip, if_feed_drop=if_feed_drop, if_feed_norm=if_feed_norm,
              MSE=(MSE_or_GaussianNLLLoss=='MSE'))
 
     # load the model
