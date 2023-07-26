@@ -1082,6 +1082,10 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         n_layers=4
         drop_prob=0.3
         num_heads=6
+        bidirectional = False
+        if_skip = False
+        if_feed_drop = True
+        if_feed_norm = True
 
         start_year = 2004
 
@@ -1111,6 +1115,10 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         n_layers = args.n_layers
         drop_prob = args.drop_prob
         num_heads = args.num_heads
+        bidirectional = args.bidirectional
+        if_skip = args.if_skip
+        if_feed_drop = args.if_feed_drop
+        if_feed_norm = args.if_feed_norm
 
         start_year = args.start_year
 
@@ -1171,8 +1179,8 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
              embed_dim_mapping=data_format.embed_dim_mapping,
              input_dim=input_dim, hidden_dim=300, output_dim=pred_num_quarters,
              n_layers=n_layers, drop_prob=drop_prob, rnn_type=rnn_type,
-             bidirectional=True, num_heads=num_heads, 
-             if_skip=True, if_feed_drop=True, if_feed_norm=True,
+             bidirectional=bidirectional, num_heads=num_heads, 
+             if_skip=if_skip, if_feed_drop=if_feed_drop, if_feed_norm=if_feed_norm,
              MSE=(MSE_or_GaussianNLLLoss == "MSE"))
     
     # Train the model for the first time
@@ -1227,6 +1235,10 @@ if __name__ == "__main__":
             "num_heads": 6,
             "start_year": 2004,
             "checkpoint_file_name": "checkpoint.pth",
+            "bidirectional": False, 
+            "if_skip": False, 
+            "if_feed_drop": True, 
+            "if_feed_norm": True,
         }
         with open('parameters.json', 'w') as f:
             json.dump(parameters, f)
