@@ -476,11 +476,13 @@ def route_dict_to_df(route_dict):
     return df 
 
 
-def find_best_routes():
+def find_best_routes(year=2023, include_quarters=2):
     df = pd.read_csv('./results/data_to_ana_apply.csv')
 
     # Assuming df is your DataFrame
     df['percentage_error'] = abs(df['Seats'] - df['pred']) / df['Seats'] * 100
+
+    df = df[(df['year']==2023) & (df['quarter']<=include_quarters)]
 
     # Calculate the average percentage error for each route
     average_error = df.groupby(['Mkt Al', 'Orig', 'Dest'])['percentage_error'].mean().reset_index()
@@ -499,7 +501,7 @@ def find_best_routes():
     best_route = filtered_df[['Mkt Al', 'Orig', 'Dest']].drop_duplicates().reset_index(drop=True)
     best_route.to_csv('./results/best_route.csv', index=False)
 
-# inherit the DataAna Class
+
 class DataAna():
     def __init__(self, ana_df_name):
         self.df = pd.read_csv(ana_df_name, index_col=0)
