@@ -476,7 +476,7 @@ def route_dict_to_df(route_dict):
     return df 
 
 
-def find_best_routes(year=2023, include_quarters=2):
+def find_best_routes(year=2023, include_quarters=3):
     df = pd.read_csv('./results/data_to_ana_apply.csv')
 
     # Assuming df is your DataFrame
