@@ -840,6 +840,8 @@ def calculate_quarters(pred_num_quarters, seq_num, start_quarter='Q4 2022'):
         year += 1
     test_data = f'Q{qtr} {year}'
 
+    print(f' Train Boundary quarter (<): {boundary_quarter}', f'Test data (>): {test_data}', sep='\n')
+
     return boundary_quarter, test_boundary_quarter, test_data
 
 
@@ -1241,6 +1243,7 @@ if __name__ == "__main__":
             "if_skip": False, 
             "if_feed_drop": True, 
             "if_feed_norm": True,
+            "start_quarter": "Q4 2022"
         }
         with open('parameters.json', 'w') as f:
             json.dump(parameters, f)

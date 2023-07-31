@@ -201,6 +201,10 @@ RNN_apply_ind.main_apply(args, folder_path, seats_file_name, perf_file_name, app
 
 ## Things to know
 1. Don't turn learning rate too high, making it no great than 0.001 is a good choice.
+2. Change the `start_quarter` in `parameters.json` to the year that performance data ends.
+3. Remember too add `Date` Columns when adding new performance data.
+4. The way to merge the new updated permance data with the old performance data is written in `run.ipynb`.
+5. Make sure validation schedule data starts from the quarter after the last quarter of the performance data.
 
 ## Updates since last version
 1. Add the choice of using MSE or GaussianNLLLoss as the loss function. The default is GaussianNLLLoss. For MSE loss,  if want to have confidence interval, it need to use Monte Carlo method to get the confidence interval but the result is not good.
