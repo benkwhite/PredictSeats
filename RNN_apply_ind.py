@@ -856,6 +856,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_feed_drop = True
         if_feed_norm = True
 
+        start_quarter = "Q1 2023" # or "Q4 2022"
+
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -874,7 +876,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_skip = args.if_skip
         if_feed_drop = args.if_feed_drop
         if_feed_norm = args.if_feed_norm
-
+        
+        start_quarter = args.start_quarter
         # start_year = args.start_year
 
     print("-------- Start ----------")
@@ -908,7 +911,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     else:
         print("Applying data does not exist, will create it")
         load_apply_data = False
-    boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num)
+    boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num, start_quarter=start_quarter)
     
     train_filename = data_format.data_root + 'training_data.csv' 
     scaled_filename = data_format.data_root + 'scaled_data.csv' 
@@ -987,8 +990,8 @@ if __name__ == "__main__":
     folder_path = r'C:\Users\qilei.zhang\OneDrive - Frontier Airlines\Documents\Data\USconti'
     seats_file_name = r'\Schedule_Monthly_Summary_Report_Conti.csv'
     perf_file_name = r'\Airline_Performance_Report_Conti.csv'
+    # apply_file_name = '\Schedule_Monthly_Summary_2023Q234.csv'
     apply_file_name = '\Schedule_Monthly_Summary_2023Q1234.csv'
-    # apply_file_name = '\Schedule_Monthly_Summary_2023Q1234.csv'
 
     # Load parameters from the JSON file.
     if not os.path.exists('parameters.json'):
