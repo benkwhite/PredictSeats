@@ -482,7 +482,7 @@ def find_best_routes(year=2023, include_quarters=3):
     # Assuming df is your DataFrame
     df['percentage_error'] = abs(df['Seats'] - df['pred']) / df['Seats'] * 100
 
-    df = df[(df['year']==2023) & (df['quarter']<=include_quarters)]
+    df = df[(df['year']==year) & (df['quarter']<=include_quarters)]
 
     # Calculate the average percentage error for each route
     average_error = df.groupby(['Mkt Al', 'Orig', 'Dest'])['percentage_error'].mean().reset_index()

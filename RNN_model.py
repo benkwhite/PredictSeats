@@ -1088,6 +1088,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         if_feed_norm = True
 
         start_year = 2004
+        start_quarter = "Q4 2022" # boundary_quarter - performance data end quarter
 
         checkpoint_file_name = "checkpoint.pth"
     else:
@@ -1121,6 +1122,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         if_feed_norm = args.if_feed_norm
 
         start_year = args.start_year
+        start_quarter = getattr(args, 'start_quarter', "Q4 2022")
 
     ############################# start training #############################
 
@@ -1156,7 +1158,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
                                    if_add_time_info=if_add_time_info, sequence_length=seq_num, 
                                    pred_num_quarters=pred_num_quarters, start_year=start_year) # set 2015 temporarily to limit the data size
     if not debug:
-        boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num, start_quarter='Q4 2022')
+        boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num, start_quarter=start_quarter)
         data_format.one_step_process(boundary_quarter=boundary_quarter, test_boundary_quarter=test_boundary_quarter)
         # boundary_quarter = Q4 2022 - pred_num_quarters
         # test_boundary_quarter = Q4 2022 - seq_len - pred_num_quarters

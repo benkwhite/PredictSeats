@@ -202,4 +202,19 @@ RNN_apply_ind.main_apply(args, folder_path, seats_file_name, perf_file_name, app
 ## Things to know
 1. Don't turn learning rate too high, making it no great than 0.001 is a good choice.
 
+## Updates since last version
+1. Add the choice of using MSE or GaussianNLLLoss as the loss function. The default is GaussianNLLLoss. For MSE loss,  if want to have confidence interval, it need to use Monte Carlo method to get the confidence interval but the result is not good.
+2. Make the root folder more clean and organized. Sort the files into different folders. If there is no existing folder, it will be created automatically.
+3. The main function is packed into a function `main_program()` to make the execution more clear.
+4. Ensemble all the validation function into one file `RNN_apply_ind.py`. Simply run the code in the file to get the validation result.
+5. Use `parameters.json` to store all the parameters. This makes it easier to change the parameters.
+6. Improve serveral functions to make the code more efficient and time-saving.
+7. Some old functions are removed.
+8. Interactive with the user to ask what route result to show.
+9. Add checkpoint function to save the model and optimizer.
+10. Fix some bugs.
+   - Processing the unconsistent number of departure and arrival airports in the schedule file and the performance file.
+   - Handling the start year not from the beginning year of the dataset
+11. Thanks to Vishesh, the population data was updated to (2005, 2015, 2020) instead of (2005, 2015, 2019) by using the Excel function.
+
 ## Expectation?
