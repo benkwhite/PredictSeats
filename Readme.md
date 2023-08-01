@@ -9,7 +9,7 @@ To train the model, follow these steps:
    - Download the necessary data from Diio Mi and place it in the data folder. The data should encompass airline performance information from previous quarters as well as the scheduled data for the upcoming quarters. The specific files to be downloaded are:
      - `Schedule_Monthly_Summary_Report_Conti.csv`: This file contains historical data on quarterly airline schedules.
      - `Airline_Performance_Report_Conti.csv`: This file provides an overview of the airline's performance in past quarters.
-     - `Schedule_Monthly_Summary_2023Q1234.csv`: This file provides scheduled data for the quarters of 2023.
+     - `Schedule_Monthly_Summary_2023Qxxxx.csv`: This file provides scheduled data for the quarters of 202x.
 
 2. **Code Setup**:
    - Organize the code files in a dedicated folder. This could be a local directory on your machine, a folder in Google Colab, or a workspace in Azure Databricks. The required files are:
@@ -225,7 +225,7 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 1. **Learning Rate**: Ensure the learning rate is not set too high. It is recommended not to exceed 0.001.
 2. **Start Quarter**: Update the `start_quarter` in `parameters.json` to the year when the performance data ends.
 3. **Data Columns**: Always add a `Date` column when introducing new performance data since single-quarter download may omit this column.
-4. **Data Merge**: The process to merge updated performance data with existing data is outlined in `run.ipynb`.
+4. **Data Merge**: The process to merge updated performance data with existing data is outlined in `run.ipynb`. 
 5. **Validation Schedule Data**: Make sure the validation schedule data begins from the quarter following the last quarter of the performance data.
 6. **LabelEncoder Consistency**: Be aware that the version of LabelEncoder (from sklearn) might vary across platforms. For consistency, it's best to train and test the model on the same platform.
 
@@ -234,12 +234,17 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 1. Introduced a choice between Mean Squared Error (MSE) and Gaussian Negative Log Likelihood (GaussianNLLLoss) for the loss function. GaussianNLLLoss is the default. For MSE, if a confidence interval is desired, the Monte Carlo method must be used, although results have been sub-optimal.
 2. Optimized root folder organization, categorizing files into specific folders. New folders are automatically created as needed.
 3. Encapsulated the main function into `main_program()` for clarity and easy execution.
-4. Consolidated all validation functions into a single file, `RNN_apply_ind.py`. Running this script will generate validation results.
+4. Consolidated all validation functions into a single file, `RNN_apply_ind.py`. Executing this script will generate validation results.
+   - An updated data split example for predicting three quarters of data can be found here: ![Data Split](example\DataSplit.jpg)
+   - Although the model is capable of predicting an arbitrary number of quarters, it is recommended to limit the number of quarters being predicted. This approach has two main benefits: 
+     - **Data Perspective**: By predicting fewer quarters, more historical data is available for model training. 
+     - **Model Perspective**: Predicting fewer quarters allows the model to focus on a smaller time frame, reducing the variables that need to be balanced within the loss function.
+
 5. Moved all parameters to a `parameters.json` file for easy modification.
 6. Optimized several functions for efficiency and performance.
 7. Added interactive features prompting users to select desired route results.
 8. Introduced a checkpoint function to save the model and optimizer for later use.
-9. Fixed various bugs, including handling inconsistent numbers of departure and arrival airports in the schedule and performance files, and ensuring the start year isn't restricted to the initial year of the dataset.
+9.  Fixed various bugs, including handling inconsistent numbers of departure and arrival airports in the schedule and performance files, and ensuring the start year isn't restricted to the initial year of the dataset.
 10. Thanks to Vishesh's contribution, population data was updated to (2005, 2015, 2020) from the earlier (2005, 2015, 2019) using Excel functions.
 
 ### Deprecated Features
