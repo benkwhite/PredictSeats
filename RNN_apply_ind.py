@@ -47,8 +47,9 @@ class Validation(DatasetFormation):
 
         # apply_file_name = 'Schedule_Monthly_Summary_2023Q12.csv'
         self.apply_sch_df = pd.read_csv(self.root + apply_file_name)
+        self.apply_sch_df['SortDate'] = self.apply_sch_df['Date'].apply(lambda x: int(x.split(' ')[1]) * 4 + int(x.split(' ')[0][1]))
 
-    def create_real_test_data(self, test_date='Q1 2021'):
+    def create_real_test_data(self, test_date='Q1 2021', start_quarter='Q1 2023'):
         """
         test_date: the quarter and year that starts the test data, 
         i.e., the last quarter data available minus the sequence length
@@ -86,9 +87,11 @@ class Validation(DatasetFormation):
         print("The market size is calculated.")
 
         # get the test data after 2022 Q3
+        boundary_num = int(start_quarter.split(' ')[1]) * 4 + int(start_quarter.split(' ')[0][1])
         test_date_num = int(test_date.split(' ')[1]) * 4 + int(test_date.split(' ')[0][1])
         self.df['SortDate'] = self.df['Date'].apply(lambda x: int(x.split(' ')[1]) * 4 + int(x.split(' ')[0][1]))
         self.test_df = self.df[self.df['SortDate'] >= test_date_num]
+        self.test_df = self.test_df[self.test_df['SortDate'] < boundary_num].copy()
         
         # reset the index
         self.test_df.reset_index(drop=True, inplace=True)
@@ -104,14 +107,21 @@ class Validation(DatasetFormation):
                              scaled_filename='./data/scaled_data.csv', 
                              apply_filename='./data/applying_data.csv',
                              load_apply_data=True,
-                             test_date='Q1 2021'):
+                             test_date='Q1 2021',
+                             on_apply_data=True,
+                             start_quarter='Q1 2023'):
         # load the original training data first to get the scaler
         self.train_df = pd.read_csv(train_filename)
-        if not load_apply_data:
-            # self.test_df = pd.read_csv(test_filename) # Not needed
-            self.create_real_test_data(test_date)
+
+        if on_apply_data:
+            # load the testing data (or so-called validation data)
+            if not load_apply_data:
+                # self.test_df = pd.read_csv(test_filename) # Not needed
+                self.create_real_test_data(test_date, start_quarter)
+            else:
+                self.test_df = pd.read_csv(apply_filename)
         else:
-            self.test_df = pd.read_csv(apply_filename)
+            self.test_df = pd.read_csv(test_filename) # now data
 
         self.scaled_df = pd.read_csv(scaled_filename)
         print("Original data loaded.")
@@ -129,13 +139,13 @@ class Validation(DatasetFormation):
 
         # load the testing data, not scaled yet
         self.scaler_data_val()
-        print("Validation data scaled.")
+        print("Validation/Test data scaled.")
         self.create_date_features_val()
         print("Date features created.")
         # self.save_scaled_data_val()  # temporary comment
         
         # prepare the validation data
-        self.final_preparation_val()
+        self.final_preparation_val(start_quarter)
         print("Validation data prepared.")
 
     def scaler_data_val(self):
@@ -151,7 +161,7 @@ class Validation(DatasetFormation):
 
         self.scaled_df[self.x_features_without_seats] = scaled_features
 
-        print("Apply data scaled.")
+        # print("Apply data scaled.")
 
     def create_date_features_val(self, relative_date="2003-01-01"):
         """
@@ -174,7 +184,7 @@ class Validation(DatasetFormation):
         else:
             print("The dataset has not been scaled yet.")
 
-    def final_preparation_val(self):
+    def final_preparation_val(self, start_quarter='Q1 2023'):
         # Create binary features for the quarter
         # self.scaled_df = pd.get_dummies(self.scaled_df, columns=['year', 'quarter'])
         # group the dataframe for each airline and each route
@@ -183,18 +193,44 @@ class Validation(DatasetFormation):
         for key, route_df in self.scaled_df.groupby(["Mkt Al", "Orig", "Dest"]):
             # Get the value of the seats from applying data
             seats_df = self.apply_sch_df[(self.apply_sch_df['Mkt Al'] == key[0]) & (self.apply_sch_df['Orig'] == key[1]) & (self.apply_sch_df['Dest'] == key[2])]
-            if len(seats_df) > self.n_future:
-                seats_df = seats_df.iloc[:self.n_future, :]
+            # if len(seats_df) > self.n_future:
+            #     seats_df = seats_df.iloc[:self.n_future, :]
 
-            if len(route_df) < self.seq_len:
+            if len(route_df) < (self.seq_len + self.skip_quarters):
                 continue
             
-            # Get the seats values to list
-            seats_list = seats_df['Seats'].values
+            # Get the end quarter of seats (start quarter + prediction quarters)
+            qtr, year = start_quarter.split(' ')
+            qtr = int(qtr[1])  # Convert 'Qx' to an integer
+            year = int(year)
 
-            # fill out 0 for the seats_list if the seats_list is not long enough
-            if len(seats_df) < self.n_future:
-                seats_list = list(seats_list) + [0] * (self.n_future - len(seats_df))
+            if self.skip_quarters==0:
+                qtr += 1
+                while qtr > 4:
+                    qtr -= 4
+                    year += 1
+                start_quarter = f'Q{qtr} {year}'
+
+            qtr += (self.n_future - 1)
+            while qtr > 4:
+                qtr -= 4
+                year += 1
+            end_quarter = f'Q{qtr} {year}'
+
+            seats_start_date = int(start_quarter.split(' ')[1]) * 4 + int(start_quarter.split(' ')[0][1])
+            seats_end_date = int(end_quarter.split(' ')[1]) * 4 + int(end_quarter.split(' ')[0][1])
+            # seats_df[seats_df['SortDate'] >= seats_start_date]
+            seats_df = seats_df[(seats_df['SortDate'] >= seats_start_date) & (seats_df['SortDate'] <= seats_end_date)]
+            
+            if len(seats_df) > 0:
+                # Get the seats values to list
+                seats_list = seats_df['Seats'].values
+
+                # fill out 0 for the seats_list if the seats_list is not long enough
+                if len(seats_df) < self.n_future:
+                    seats_list = list(seats_list) + [0] * (self.n_future - len(seats_df))
+            else:
+                seats_list = [0] * self.n_future # when do current quarter prediction, the seats_list is empty
 
             route_df = route_df.sort_values("Date_delta")
             datasets.append(FlightDataset(route_df, self.seq_len, self.num_features,
@@ -219,6 +255,7 @@ class FlightDataset(Dataset):
         self.sequence_length = sequence_length
         self.num_features = num_feat
         self.cat_features = cat_feat
+        self.skip_qrts = skip_qrts
 
         self.dummy_quarter = [*[f"quarter_{i}" for i in range(1, 5)]]
 
@@ -227,13 +264,14 @@ class FlightDataset(Dataset):
         else:
             self.num_features = self.num_features + self.dummy_quarter
 
-        if seats_values is None:
-            self.seats_values = [0] * n_future
-        else:
-            self.seats_values = seats_values
+        # if seats_values is None:
+        #     self.seats_values = [0] * n_future
+        # else:
+        #     self.seats_values = seats_values
+        self.seats_values = seats_values
 
     def __len__(self):
-        return len(self.df) - self.sequence_length + 1
+        return len(self.df) - self.sequence_length - self.skip_qrts + 1
 
     def __getitem__(self, idx):
         # Get the relevant slice of the dataframe
@@ -242,6 +280,15 @@ class FlightDataset(Dataset):
         # Construct the sequence data
         sequence_data = df_slice[self.num_features].astype(float).values
         cat_sequence_data = torch.LongTensor(df_slice[self.cat_features].values)
+
+        if self.skip_qrts > 0:
+            # Get the relevant slice of the dataframe for the seats of skip quarters
+            df_skip_slice = self.df.iloc[(idx + self.sequence_length) : 
+                                        (idx + self.sequence_length + self.skip_qrts)]
+
+            # attaching the skip quarter seats as a feature to the sequence data
+            skip_values = df_skip_slice['Seats'].values.repeat(self.sequence_length).reshape(-1, self.sequence_length).T
+            sequence_data = np.concatenate((sequence_data, skip_values), axis=1)
 
         # Get the relevant slice of the dataframe for the target seats
         # df_target_slice = self.df.iloc[idx + self.sequence_length : idx + self.sequence_length]
@@ -477,7 +524,7 @@ def route_dict_to_df(route_dict):
     return df 
 
 
-def find_best_routes(year=2023, include_quarters=3):
+def find_best_routes(year=2023, include_quarters=4):
     df = pd.read_csv('./results/data_to_ana_apply.csv')
 
     # Assuming df is your DataFrame
@@ -735,6 +782,7 @@ class DataAna():
         plt.title(f'Seats Trend for {al} {alpha}', fontsize=16)
         plt.xlabel('Date (Quarter)', fontsize=14)
         plt.ylabel('Seats', fontsize=14)
+        plt.ylim(bottom=0)
 
         # Increase tick label size
         plt.xticks(fontsize=12)
@@ -835,7 +883,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
               'shuffle': False,  # set False to keep the order of the dataset
               'num_workers': 1, # number of workers for the dataloader
               'collate_fn': collate_fn}
-    validation_type = 'Val'
+    
 
     # create a result folder if not exist
     if not os.path.exists('results'):
@@ -858,8 +906,9 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_feed_norm = True
 
         start_quarter = "Q1 2023" # or "Q4 2022"
-        skip_quarters = 0
+        skip_quarters = 2
 
+        validation_type = 'Val'
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -879,9 +928,11 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_feed_drop = args.if_feed_drop
         if_feed_norm = args.if_feed_norm
         
-        start_quarter = getattr(args, 'start_quarter', "Q4 2022")
-        skip_quarters = getattr(args, 'skip_quarters', 3)
+        start_quarter = getattr(args, 'start_quarter', "Q1 2023")
+        skip_quarters = getattr(args, 'skip_quarters', 2)
         # start_year = args.start_year
+
+        validation_type = getattr(args, 'validation_type', 'Val')
 
     print("-------- Start ----------")
     # record the start time
@@ -915,7 +966,9 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     else:
         print("Applying data does not exist, will create it")
         load_apply_data = False
-    boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num, start_quarter=start_quarter)
+    boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num, 
+                                                                                      start_quarter=start_quarter,
+                                                                                      skip_quarters=skip_quarters)
     
     train_filename = data_format.data_root + 'training_data.csv' 
     scaled_filename = data_format.data_root + 'scaled_data.csv' 
@@ -925,13 +978,15 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
                                      scaled_filename=scaled_filename,
                                      apply_filename=apply_filename,
                                      load_apply_data=load_apply_data, 
-                                     test_date=apply_data_boundary)
+                                     test_date=apply_data_boundary,
+                                     on_apply_data=(validation_type=='Val'),
+                                     start_quarter=start_quarter)
     # test data is test data starting date. 
     full_dataset = data_format.full_df
 
     # Create the dataloader
     dataloader = DataLoader(full_dataset, **params)
-    input_dim = len(x_features) + int(if_add_time_info) + 4
+    input_dim = len(x_features) + int(if_add_time_info) + 4 + skip_quarters
     net = RNNNet(cat_feat=data_format.cat_features, cat_mapping=data_format.cat_mapping,
              embed_dim_mapping=data_format.embed_dim_mapping,
              input_dim=input_dim, hidden_dim=300, output_dim=pred_num_quarters,

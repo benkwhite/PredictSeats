@@ -1127,10 +1127,12 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         if_feed_norm = True
 
         start_year = 2004
-        start_quarter = "Q4 2022" # boundary_quarter - performance data end quarter
-        skip_quarters = 0
+        start_quarter = "Q1 2023" # boundary_quarter - performance data end quarter
+        skip_quarters = 2
 
         checkpoint_file_name = "checkpoint.pth"
+
+        validation_type = "Val"
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -1162,8 +1164,10 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         if_feed_norm = args.if_feed_norm
 
         start_year = args.start_year
-        start_quarter = getattr(args, 'start_quarter', "Q4 2022")
+        start_quarter = getattr(args, 'start_quarter', "Q1 2023")
         skip_quarters = getattr(args, 'skip_quarters', 2)
+
+        validation_type = getattr(args, 'validation_type', 'Val')
 
     ############################# start training #############################
 
@@ -1284,6 +1288,7 @@ if __name__ == "__main__":
             "if_feed_norm": True,
             "start_quarter": "Q4 2022",
             "skip_quarters": 0,
+            "validation_type": "Val",
         }
         with open('parameters.json', 'w') as f:
             json.dump(parameters, f)
