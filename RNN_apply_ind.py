@@ -482,7 +482,7 @@ def create_route_dict(all_outputs_unscaled, all_seats_unscaled, all_std_unscaled
     return result_dict
 
 
-def route_dict_to_df(route_dict):
+def route_dict_to_df(route_dict, skip_quarters=2):
     """
     transform the route dictionary to a dataframe
     but since it need a orignal dataframe to pair the data
@@ -509,6 +509,13 @@ def route_dict_to_df(route_dict):
             year = int(date[seq_index].split(' ')[1])
             quarter = int(date[seq_index].split(' ')[0][1])
             n_future = len(seats[seq_index])
+
+            quarter += (skip_quarters)
+            while quarter > 4:
+                quarter -= 4
+                year += 1
+            # test_data = f'Q{qtr} {year}'
+
             for i in range(n_future):
                 quarter += 1
                 if quarter > 4:
@@ -765,7 +772,7 @@ class DataAna():
                 linestyle='-', marker='o', color=true_color, linewidth=line_width)
 
         # Plot the prediction values and confidence intervals
-        line2, = plt.plot(df_filtered['Date'], df_filtered['pred'], label='Prediction 2023', 
+        line2, = plt.plot(df_filtered['Date'], df_filtered['pred'], label='Prediction', 
                 linestyle='--', marker='o', color=pred_color, linewidth=line_width)
         lower_bound = df_filtered['pred'] - df_filtered['std'] * 1.96
         upper_bound = df_filtered['pred'] + df_filtered['std'] * 1.96
