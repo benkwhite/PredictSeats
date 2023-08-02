@@ -198,7 +198,7 @@ class Validation(DatasetFormation):
 
             route_df = route_df.sort_values("Date_delta")
             datasets.append(FlightDataset(route_df, self.seq_len, self.num_features,
-                                          self.cat_features, self.embed_dim_mapping,
+                                          self.cat_features, self.skip_quarters,
                                           time_add=self.time_add, seats_values=seats_list,
                                           n_future=self.n_future))
         self.full_df = torch.utils.data.ConcatDataset(datasets)
@@ -213,7 +213,8 @@ class FlightDataset(Dataset):
     """
     Create a dataset that can be used for dataloading.
     """
-    def __init__(self, df, sequence_length, num_feat, cat_feat, embed_dim_mapping, time_add=True, seats_values=None, n_future=2):
+    def __init__(self, df, sequence_length, num_feat, cat_feat, skip_qrts,
+                 time_add=True, seats_values=None, n_future=2):
         self.df = df
         self.sequence_length = sequence_length
         self.num_features = num_feat
@@ -857,6 +858,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_feed_norm = True
 
         start_quarter = "Q1 2023" # or "Q4 2022"
+        skip_quarters = 0
 
     else:
         print("Using the provided arguments.")
@@ -877,7 +879,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_feed_drop = args.if_feed_drop
         if_feed_norm = args.if_feed_norm
         
-        start_quarter = args.start_quarter
+        start_quarter = getattr(args, 'start_quarter', "Q4 2022")
+        skip_quarters = getattr(args, 'skip_quarters', 3)
         # start_year = args.start_year
 
     print("-------- Start ----------")
@@ -901,7 +904,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
                              x_features, apply_file_name=apply_file_name, 
                              if_add_time_info=if_add_time_info, 
                              sequence_length=seq_num, 
-                             pred_num_quarters=pred_num_quarters)
+                             pred_num_quarters=pred_num_quarters,
+                             skip_quarters=skip_quarters)
 
     # Check if 'applying_data.csv' exists
     applying_data_path = data_format.data_root + 'applying_data.csv'

@@ -235,7 +235,9 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 2. Optimized root folder organization, categorizing files into specific folders. New folders are automatically created as needed.
 3. Encapsulated the main function into `main_program()` for clarity and easy execution.
 4. Consolidated all validation functions into a single file, `RNN_apply_ind.py`. Executing this script will generate validation results.
-   - An updated data split example for predicting three quarters of data can be found here: ![Data Split](example\DataSplit.jpg)
+   - An origin data split example for predicting three quarters of data can be found here: ![Data Split](./example/DataSplit1.jpg)
+   - An updated data split example for predicting two quarters of data and with threee quarters skip can be found here: ![Data Split](./example/DataSplit2.jpg)
+   - Here, we assume that we know the fixed schedule for the next two quarters from the last published performance data. 
    - Although the model is capable of predicting an arbitrary number of quarters, it is recommended to limit the number of quarters being predicted. This approach has two main benefits: 
      - **Data Perspective**: By predicting fewer quarters, more historical data is available for model training. 
      - **Model Perspective**: Predicting fewer quarters allows the model to focus on a smaller time frame, reducing the variables that need to be balanced within the loss function.
@@ -245,7 +247,9 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 7. Added interactive features prompting users to select desired route results.
 8. Introduced a checkpoint function to save the model and optimizer for later use.
 9.  Fixed various bugs, including handling inconsistent numbers of departure and arrival airports in the schedule and performance files, and ensuring the start year isn't restricted to the initial year of the dataset.
-10. Thanks to Vishesh's contribution, population data was updated to (2005, 2015, 2020) from the earlier (2005, 2015, 2019) using Excel functions.
+10. Add the ability to skip the current quarter(s) to satisfy the requirement of predicting future quarters.
+11. Thanks to Vishesh's contribution, population data was updated to (2005, 2015, 2020) from the earlier (2005, 2015, 2019) using Excel functions.
+12. Thanks to Stephen's personal support, the model can be tested on Google Colab.
 
 ### Deprecated Features
 Several outdated functions have been removed in the current version.
@@ -253,4 +257,5 @@ Several outdated functions have been removed in the current version.
 
 ## Expectation?
 1. What is route are we most interested in?
-2. How long do we want to predict?
+2. How long do we want to predict? 
+   - Error message from Diio `Sorry, the latest travel date accessible to your account is [2023-Jan-01].` 

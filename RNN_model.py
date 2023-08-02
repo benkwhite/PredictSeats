@@ -43,7 +43,7 @@ from matplotlib import pyplot as plt
 
 class DatasetFormation():
     def __init__(self, data_root, seats_file, perf_file, x_feat, if_add_time_info=True,
-                 sequence_length=12, pred_num_quarters=2, 
+                 sequence_length=12, pred_num_quarters=2, skip_quarters=0,
                  start_year=2004, end_year=2022):
         """
         Create a class for forming the dataset for RNN model
@@ -72,6 +72,7 @@ class DatasetFormation():
         self.date_scaler = MinMaxScaler()
         self.seq_len = sequence_length
         self.n_future = pred_num_quarters
+        self.skip_quarters = skip_quarters
         self.start_year = start_year
         self.end_year = end_year
         self.year_split = None
@@ -453,7 +454,6 @@ class DatasetFormation():
         self.train_df.reset_index(drop=True, inplace=True)
 
         test_boundary_num = int(test_boundary_quarter.split(' ')[1]) * 4 + int(test_boundary_quarter.split(' ')[0][1])
-
         # self.test_df = self.df[self.df['year'] >= str(self.end_year - self.seq_len//4)]
         self.test_df = self.df[self.df['SortDate'] >= test_boundary_num].copy()
         
@@ -557,11 +557,11 @@ class DatasetFormation():
             # group the dataframe for each airline and each route
             datasets = []
             for _, route_df in self.scaled_df.groupby(["Mkt Al", "Orig", "Dest"]):
-                if len(route_df) < self.seq_len + self.n_future:
+                if len(route_df) < (self.seq_len + self.n_future + self.skip_quarters):
                     continue
                 route_df = route_df.sort_values("Date_delta")
                 datasets.append(FlightDataset(route_df, self.seq_len, self.num_features, 
-                                              self.cat_features, self.embed_dim_mapping,
+                                              self.cat_features, self.skip_quarters,
                                               time_add=self.time_add, n_future=self.n_future))
             self.full_df = torch.utils.data.ConcatDataset(datasets)
         else:
@@ -589,7 +589,7 @@ class FlightDataset(Dataset):
     """
     Create a dataset that can be used for dataloading.
     """
-    def __init__(self, df, sequence_length, num_feat, cat_feat, embed_dim_mapping, time_add=True, n_future=2):
+    def __init__(self, df, sequence_length, num_feat, cat_feat, skip_qrts, time_add=True, n_future=2):
         self.df = df
         self.sequence_length = sequence_length
         self.num_features = num_feat
@@ -597,6 +597,7 @@ class FlightDataset(Dataset):
         self.n_future = n_future
         self.dummy_quarter = [*[f"quarter_{i}" for i in range(1, 5)]]
         self.time_add = time_add
+        self.skip_qrts = skip_qrts
 
         if self.time_add:
             self.num_features = self.num_features + self.dummy_quarter + ['time_scaled']
@@ -604,7 +605,7 @@ class FlightDataset(Dataset):
             self.num_features = self.num_features + self.dummy_quarter
 
     def __len__(self):
-        return len(self.df) - self.sequence_length - self.n_future + 1
+        return len(self.df) - self.sequence_length - self.n_future - self.skip_qrts + 1
 
     def __getitem__(self, idx):
         # Get the relevant slice of the dataframe
@@ -620,14 +621,23 @@ class FlightDataset(Dataset):
         sequence_data = df_slice[self.num_features].astype(float).values
         cat_sequence_data = torch.LongTensor(df_slice[self.cat_features].values)
 
+        if self.skip_qrts > 0:
+            # Get the relevant slice of the dataframe for the seats of skip quarters
+            df_skip_slice = self.df.iloc[(idx + self.sequence_length) : 
+                                        (idx + self.sequence_length + self.skip_qrts)]
+
+            # attaching the skip quarter seats as a feature to the sequence data
+            skip_values = df_skip_slice['Seats'].values.repeat(self.sequence_length).reshape(-1, self.sequence_length).T
+            sequence_data = np.concatenate((sequence_data, skip_values), axis=1)
+
         # Get the relevant slice of the dataframe for the target seats
-        df_target_slice = self.df.iloc[idx + self.sequence_length : idx + self.sequence_length + self.n_future]
+        df_target_slice = self.df.iloc[(idx + self.sequence_length + self.skip_qrts) : 
+                                       (idx + self.sequence_length + self.skip_qrts + self.n_future)]
 
         # "Seats" is the 19th column (0-indexed)
         target_data = df_target_slice["Seats"].values 
 
-        # Return the sequence data and the target value. "Seats" is the 19th column (0-indexed)
-        # return torch.from_numpy(sequence_data[:-1]), torch.tensor(sequence_data[-1, 18])  
+        # Return the sequence data and the target value. "Seats" is the 19th column (0-indexed)  
         return torch.from_numpy(sequence_data), cat_sequence_data, torch.tensor(target_data), time_range, loc_key
 
 
@@ -813,36 +823,63 @@ def compute_error_table(seats_true, seats_pred, seats_pred_std):
     return error_table
 
 
-def calculate_quarters(pred_num_quarters, seq_num, start_quarter='Q4 2022'):
+def calculate_quarters(pred_num_quarters, seq_num, start_quarter='Q4 2022', skip_quarters=0):
     # Extract quarter and year from the start quarter
     qtr, year = start_quarter.split(' ')
     qtr = int(qtr[1])  # Convert 'Qx' to an integer
     year = int(year)
 
-    # Calculate the boundary quarter
-    qtr -= pred_num_quarters
-    while qtr < 1:
-        qtr += 4
-        year -= 1
-    boundary_quarter = f'Q{qtr} {year}'
+    qtr_backup = qtr
+    year_backup = year
 
-    # Calculate the test boundary quarter
-    qtr -= (seq_num - 1)
-    while qtr < 1:
-        qtr += 4
-        year -= 1
-    test_boundary_quarter = f'Q{qtr} {year}'
+    if skip_quarters == 0:
+        # Calculate the boundary quarter
+        qtr -= pred_num_quarters
+        while qtr < 1:
+            qtr += 4
+            year -= 1
+        boundary_quarter = f'Q{qtr} {year}'
 
-    # Calculate the test data
-    qtr += pred_num_quarters  # Add one quarter to get the start of test data
-    while qtr > 4:
-        qtr -= 4
-        year += 1
-    test_data = f'Q{qtr} {year}'
+        # Calculate the test boundary quarter
+        qtr -= (seq_num - 1)
+        while qtr < 1:
+            qtr += 4
+            year -= 1
+        test_boundary_quarter = f'Q{qtr} {year}'
 
-    print(f' Train Boundary quarter (<): {boundary_quarter}', f'Test data (>): {test_data}', sep='\n')
+        # Calculate the test data
+        qtr += pred_num_quarters  # Add one quarter to get the start of test data
+        while qtr > 4:
+            qtr -= 4
+            year += 1
+        test_data = f'Q{qtr} {year}'
+        print(f'Train Boundary quarter (<): {boundary_quarter}', f'Test data (>): {test_data}', sep='\n')
+    else:
+        # Calculate the boundary quarter
+        boundary_quarter = start_quarter
 
-    return boundary_quarter, test_boundary_quarter, test_data
+        # # Calculate the test_data quarter
+        # qtr += 2 # Assume we know the fixed schedule for the next two quarters
+        qtr -= (seq_num + skip_quarters)
+        while qtr < 1:
+            qtr += 4
+            year -= 1
+        test_data = f'Q{qtr} {year}'
+
+        # Calculate the test boundary quarter
+        qtr = qtr_backup
+        year = year_backup
+        qtr -= (seq_num - 1)
+        while qtr < 1:
+            qtr += 4
+            year -= 1
+        test_boundary_quarter = f'Q{qtr} {year}'
+
+        print(f'Train Boundary quarter (<): {boundary_quarter}', 
+              f'Validation Boundary quarter (>): {test_data}',
+              f'Test data (>): {test_boundary_quarter}', sep='\n')
+        
+    return boundary_quarter, test_boundary_quarter, test_data  # train, test, vali
 
 
 class MSELossWithPenalty(nn.Module):
@@ -1091,6 +1128,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
 
         start_year = 2004
         start_quarter = "Q4 2022" # boundary_quarter - performance data end quarter
+        skip_quarters = 0
 
         checkpoint_file_name = "checkpoint.pth"
     else:
@@ -1125,6 +1163,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
 
         start_year = args.start_year
         start_quarter = getattr(args, 'start_quarter', "Q4 2022")
+        skip_quarters = getattr(args, 'skip_quarters', 2)
 
     ############################# start training #############################
 
@@ -1158,14 +1197,14 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
     # Load the dataset
     data_format = DatasetFormation(folder_path, seats_file_name, perf_file_name, x_features, 
                                    if_add_time_info=if_add_time_info, sequence_length=seq_num, 
-                                   pred_num_quarters=pred_num_quarters, start_year=start_year) # set 2015 temporarily to limit the data size
+                                   pred_num_quarters=pred_num_quarters, skip_quarters=skip_quarters,
+                                   start_year=start_year)
     if not debug:
-        boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num, start_quarter=start_quarter)
+        # train (boundary_quarter), test (test_boundary_quarter), vali (apply_data_boundary)
+        boundary_quarter, test_boundary_quarter, apply_data_boundary = calculate_quarters(pred_num_quarters, seq_num, 
+                                                                                          start_quarter=start_quarter,
+                                                                                          skip_quarters=skip_quarters)
         data_format.one_step_process(boundary_quarter=boundary_quarter, test_boundary_quarter=test_boundary_quarter)
-        # boundary_quarter = Q4 2022 - pred_num_quarters
-        # test_boundary_quarter = Q4 2022 - seq_len - pred_num_quarters
-        # data_format.load_scaled_data_val(load_apply_data=load_apply_data, test_date="Q3 2020")
-        # In applying format, we enter test_data = Q4 2022 - seq_len
     else:
         data_format.load_scaled_data()
         data_format.final_preparation()
@@ -1176,7 +1215,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
                             num_workers=num_workers, collate_fn=collate_fn)
 
     # Create the model
-    input_dim = len(x_features) + int(if_add_time_info) + 4
+    input_dim = len(x_features) + int(if_add_time_info) + 4 + skip_quarters
     print(f"Input dimension: {input_dim}")
     
     net = RNNNet(cat_feat=data_format.cat_features, cat_mapping=data_format.cat_mapping,
@@ -1243,7 +1282,8 @@ if __name__ == "__main__":
             "if_skip": False, 
             "if_feed_drop": True, 
             "if_feed_norm": True,
-            "start_quarter": "Q4 2022"
+            "start_quarter": "Q4 2022",
+            "skip_quarters": 0,
         }
         with open('parameters.json', 'w') as f:
             json.dump(parameters, f)
