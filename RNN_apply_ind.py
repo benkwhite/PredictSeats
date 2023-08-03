@@ -196,6 +196,10 @@ class Validation(DatasetFormation):
             # if len(seats_df) > self.n_future:
             #     seats_df = seats_df.iloc[:self.n_future, :]
 
+            # debug
+            # if key == ('AA', 'DEN', 'LAX'):
+            #     print('found number')
+
             if len(route_df) < (self.seq_len + self.skip_quarters):
                 continue
             
@@ -309,7 +313,7 @@ class FlightDataset(Dataset):
         return torch.from_numpy(sequence_data), cat_sequence_data, torch.tensor(target_data), time_range, loc_key
     
 
-def validation(loader, net, seat_scaler, device='cpu', n_times=1, MSE=True):
+def validation(loader, net, seat_scaler, device='cpu', n_times=1, MSE=True, tune_folder=None):
     # Set the network to evaluation mode
     net = net.to(device) 
 
@@ -438,7 +442,11 @@ def validation(loader, net, seat_scaler, device='cpu', n_times=1, MSE=True):
     # compute_error_table Needs update
 
     # Save the error table
-    error_table_filename = './results/error_table_apply.csv'
+    # error_table_filename = './results/error_table_apply.csv'
+    if tune_folder is None:
+        error_table_filename = './results/error_table_apply.csv'
+    else:
+        error_table_filename = f'./{tune_folder}/results/error_table_apply.csv'
     final_error_table.to_csv(error_table_filename, index=False)
 
     print(final_error_table)
@@ -531,8 +539,12 @@ def route_dict_to_df(route_dict, skip_quarters=2):
     return df 
 
 
-def find_best_routes(year=2023, include_quarters=4):
-    df = pd.read_csv('./results/data_to_ana_apply.csv')
+def find_best_routes(year=2023, include_quarters=4, tune_folder=None):
+    # df = pd.read_csv('./results/data_to_ana_apply.csv')
+    if tune_folder is None:
+        df = pd.read_csv('./results/data_to_ana_apply.csv')
+    else:
+        df = pd.read_csv(f'./{tune_folder}/results/data_to_ana_apply.csv')
 
     # Assuming df is your DataFrame
     df['percentage_error'] = abs(df['Seats'] - df['pred']) / df['Seats'] * 100
@@ -554,11 +566,16 @@ def find_best_routes(year=2023, include_quarters=4):
 
     # Get unique routes
     best_route = filtered_df[['Mkt Al', 'Orig', 'Dest']].drop_duplicates().reset_index(drop=True)
-    best_route.to_csv('./results/best_route.csv', index=False)
+
+    # Save the best routes
+    if tune_folder is None:
+        best_route.to_csv('./results/best_route.csv', index=False)
+    else:
+        best_route.to_csv(f'./{tune_folder}/results/best_route.csv', index=False)
 
 
 class DataAna():
-    def __init__(self, ana_df_name):
+    def __init__(self, ana_df_name, tune_folder=None):
         self.df = pd.read_csv(ana_df_name, index_col=0)
         self.competitors_quartiles = None
         self.seats_quartiles = None
@@ -566,6 +583,8 @@ class DataAna():
 
         self.boundary_quarter = "Q1 2023"
         self.boundary_num = int(self.boundary_quarter.split(' ')[1]) * 4 + int(self.boundary_quarter.split(' ')[0][1])
+
+        self.tune_folder = tune_folder
 
     def group_by_direction(self, group_bi_direction=True, seat_sum=False):
         if group_bi_direction:
@@ -659,7 +678,11 @@ class DataAna():
         self.classify_market_size()
         self.calculate_metrics_new()
 
-        self.df.to_csv("./results/data_after_ana_app.csv", index=False)
+        # Save the data
+        if self.tune_folder is None:
+            self.df.to_csv("./results/data_after_ana_app.csv", index=False)
+        else:
+            self.df.to_csv(f"./{self.tune_folder}/results/data_after_ana_app.csv", index=False)
 
     def calculate_metrics_new(self, pivot=False):
         """
@@ -703,7 +726,10 @@ class DataAna():
             result_df = result_df.pivot_table(index='Metric', columns=['competition_level', 'market_size'], values='Value')
 
         # save the result
-        result_df.to_csv("./results/result_apply.csv", index=False)
+        if self.tune_folder is None:
+            result_df.to_csv("./results/result_apply.csv", index=False)
+        else:
+            result_df.to_csv(f"./{self.tune_folder}/results/result_apply.csv", index=False)
 
         return result_df
     
@@ -797,7 +823,11 @@ class DataAna():
 
         # Save the plot
         plt.tight_layout() # This ensures that all labels are visible in the saved file
-        fig_name = './results/' + f'{al}_{alpha}_ind.png'
+        if self.tune_folder is None:
+            fig_name = './results/' + f'{al}_{alpha}_ind.png'
+        else:
+            fig_name = f'./{self.tune_folder}/results/' + f'{al}_{alpha}_ind.png'
+        # fig_name = './results/' + f'{al}_{alpha}_ind.png'
         plt.savefig(fig_name, dpi=300) # Set dpi for higher resolution
 
         # Display the plot
@@ -893,8 +923,9 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     
 
     # create a result folder if not exist
-    if not os.path.exists('results'):
-        os.makedirs('results')
+    results_path = './results' if tune_folder is None else f'./{tune_folder}/results/'
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
 
     if args is None:
         print("Using default parameters since no arguments are provided.")
@@ -916,6 +947,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         skip_quarters = 2
 
         validation_type = 'Val'
+        tune = False
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -1006,45 +1038,47 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
              MSE=(MSE_or_GaussianNLLLoss=='MSE'))
 
     # load the model
-    # model_path = r'C:\Users\qilei.zhang\OneDrive - Frontier Airlines\Documents\VSCode\SeatPredict\model.pth'
-    model_path = r'./model/model.pth'
+    # model_path = r'./model/model.pth'
+    model_path = r'./model/model.pth' if tune_folder is None else f'./{tune_folder}/model/model.pth'
     net.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     print("Model loaded")
 
     # validate the model
     outputs, seats, stds, keys = validation(dataloader, net, data_format.seat_scaler, 
-                                            device, MSE=(MSE_or_GaussianNLLLoss=='MSE'))
+                                            device, MSE=(MSE_or_GaussianNLLLoss=='MSE'),
+                                            tune_folder=tune_folder)
 
     route_dict = create_route_dict(outputs, seats, stds, keys)
     orig_df = data_format.test_df
     route_df = route_dict_to_df(route_dict)
-    ana_df_name = "./results/data_to_ana_apply.csv"
+
+    # save the processed data
+    # ana_df_name = "./results/data_to_ana_apply.csv"
+    if tune_folder is None:
+        ana_df_name = "./results/data_to_ana_apply.csv"
+    else:
+        ana_df_name = f"./{tune_folder}/results/data_to_ana_apply.csv"
     route_df.to_csv(ana_df_name)
 
     # Create the DataAna object
-    ana = DataAna(ana_df_name)
+    ana = DataAna(ana_df_name, tune_folder=tune_folder)
     ana.merge_previous_data(orig_df)
 
-    # ana.plot_prediction('AA', 'LAXSFO')
-    # ana.plot_prediction('DL', 'ATLSFO')
-    # ana.plot_prediction('F9', 'DENLAS')
-    # # ana.plot_prediction('AA', 'ATLDFW')
-    # ana.plot_prediction('AA', 'DENDFW')
-    # ana.plot_prediction('AA', 'ATLPHL')
-
-    find_best_routes() # find the best routes
+    find_best_routes(tune_folder=tune_folder) # find the best routes
     
-    while True:
-        user_input = input("Enter airline and route, separated by comma, or 'c' to exit: ")
-        if user_input.lower() == 'c':
-            break
-        try:
-            airline, route = user_input.split(',')
-            airline = airline.strip()  # remove possible leading/trailing whitespaces
-            route = route.strip()  # remove possible leading/trailing whitespaces
-            ana.plot_prediction(airline, route)
-        except ValueError:
-            print("Invalid input, please enter the airline and route separated by a comma or 'continue' to proceed.")
+    if tune == False:
+        # Ask the user to input the airline and route
+        while True:
+            user_input = input("Enter airline and route, separated by comma, or 'c' to exit: ")
+            if user_input.lower() == 'c':
+                break
+            try:
+                airline, route = user_input.split(',')
+                airline = airline.strip()  # remove possible leading/trailing whitespaces
+                route = route.strip()  # remove possible leading/trailing whitespaces
+                ana.plot_prediction(airline, route)
+            except ValueError:
+                print("Invalid input, please enter the airline and route separated by a comma or 'continue' to proceed.")
 
 
     # record the end time
@@ -1059,7 +1093,6 @@ if __name__ == "__main__":
     folder_path = r'C:\Users\qilei.zhang\OneDrive - Frontier Airlines\Documents\Data\USconti'
     seats_file_name = r'\Schedule_Monthly_Summary_Report_Conti.csv'
     perf_file_name = r'\Airline_Performance_Report_Conti.csv'
-    # apply_file_name = '\Schedule_Monthly_Summary_2023Q234.csv'
     apply_file_name = '\Schedule_Monthly_Summary_2023Q1234.csv'
 
     # Load parameters from the JSON file.

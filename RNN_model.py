@@ -33,7 +33,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from matplotlib import pyplot as plt
 
-import RNN_apply_ind, os, json, argparse
+# import RNN_apply_ind, os, json, argparse
 
 # import the ray package
 # import ray
@@ -904,8 +904,7 @@ class MSELossWithPenalty(nn.Module):
 def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10, 
           epochs=10, momentum=0.95, save_model=False, resume_training=False,
           MSE=True, checkpoint_file_name='checkpoint.pth', tune=False,
-          folder_path=None, seats_file_name=None, perf_file_name=None,
-          apply_file_name=None, tune_folder=None):
+          tune_folder=None):
     
     net = net.to(device)
 
@@ -973,11 +972,19 @@ def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10,
 
             # Print statistics
             running_loss += loss.item()
-            if i % 100 == 99:    # print every 100 mini-batches
-                print('[%d, %5d] loss: %.5f' % (epoch+1, i+1, running_loss/100))
-                train_loss.append(running_loss/100)
-                iter_record.append(i + epoch*len(train_loader))
-                running_loss = 0.0
+            if tune == False:
+                if i % 100 == 99:    # print every 100 mini-batches
+                    print('[%d, %5d] loss: %.5f' % (epoch+1, i+1, running_loss/100))
+                    train_loss.append(running_loss/100)
+                    iter_record.append(i + epoch*len(train_loader))
+                    running_loss = 0.0
+            else:
+                # reduce the frequency of printing
+                if (i % 500 == 499):
+                    print('[%d, %5d] loss: %.5f' % (epoch+1, i+1, running_loss/500))
+                    train_loss.append(running_loss/500)
+                    iter_record.append(i + epoch*len(train_loader))
+                    running_loss = 0.0
         
         # Save the model
         if save_model:
@@ -1004,11 +1011,12 @@ def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10,
         final_error_table = evaluate_model(train_loader, net, seat_scaler, device=device, MSE=MSE)
         print(final_error_table)
     else:
+        pass
         # apply_file_name = '\Schedule_Monthly_Summary_2023Q1234.csv'
         # Load parameters from the JSON file.
-        with open('parameters.json', 'r') as f:
-            args = argparse.Namespace(**json.load(f))
-        RNN_apply_ind.main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_name, tune_folder)
+        # with open('parameters.json', 'r') as f:
+        #     args = argparse.Namespace(**json.load(f))
+        # RNN_apply_ind.main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_name, tune_folder)
 
     return train_loss, iter_record
 
@@ -1099,7 +1107,7 @@ def evaluate_model(loader, net, seat_scaler, device="cpu", MSE=True, n_times=1):
     return final_error_table
 
 
-def main_program(args, folder_path, seats_file_name, perf_file_name, apply_file_name=None, tune_folder=None):
+def main_program(args, folder_path, seats_file_name, perf_file_name, tune_folder=None):
     x_features = [
             "Miles", "Deps/Day", "Seats/Day", "Seats/Dep", "Pax/Day", "Pax/Dep",  # 6/6
             "Load Factor", "Lcl %", "Local Pax/Day", "Lcl Fare", "Seg Fare", "Sys Fare",  # 6/12
@@ -1251,11 +1259,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, apply_file_
                                     save_model=True, resume_training=resume_training,
                                     MSE=(MSE_or_GaussianNLLLoss == "MSE"),
                                     checkpoint_file_name=checkpoint_file_name,
-                                    tune=tune, folder_path=folder_path, 
-                                    seats_file_name=seats_file_name, 
-                                    perf_file_name=perf_file_name,
-                                    apply_file_name=apply_file_name,
-                                    tune_folder=tune_folder)
+                                    tune=tune, tune_folder=tune_folder)
     
     # Evaluate the model Part
 
@@ -1269,7 +1273,11 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, apply_file_
     fig_name = f"lr_{learning_rate}_momentum_{momentum}_batch_size_{batch_size}_epochs_{epochs}.png"
     fig_name = data_format.data_root + fig_name
     plt.savefig(fig_name)
-    plt.show()
+
+    if tune == False:
+        plt.show()
+    else:
+        plt.close()
 
     # calculate the time used in minutes
     end_time = time.time()
@@ -1320,6 +1328,6 @@ if __name__ == "__main__":
     with open('parameters.json', 'r') as f:
         args = argparse.Namespace(**json.load(f))
     
-    main_program(args, folder_path, seats_file_name, perf_file_name, apply_file_name=apply_file_name)
+    main_program(args, folder_path, seats_file_name, perf_file_name)
 
   

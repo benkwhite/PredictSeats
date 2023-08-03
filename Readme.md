@@ -259,3 +259,5 @@ Several outdated functions have been removed in the current version.
 1. What is route are we most interested in?
 2. How long do we want to predict? 
    - Error message from Diio `Sorry, the latest travel date accessible to your account is [2023-Jan-01].` 
+3. Minor changes could be updated in the future.
+   - Make use of the interrupted route data, such as "AA, DENLAS" in Q2 2020.
