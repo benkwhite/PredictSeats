@@ -33,6 +33,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from matplotlib import pyplot as plt
 
+import RNN_apply_ind, os, json, argparse
+
 # import the ray package
 # import ray
 # from ray import tune
@@ -901,7 +903,9 @@ class MSELossWithPenalty(nn.Module):
 
 def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10, 
           epochs=10, momentum=0.95, save_model=False, resume_training=False,
-          MSE=True, checkpoint_file_name='checkpoint.pth'):
+          MSE=True, checkpoint_file_name='checkpoint.pth', tune=False,
+          folder_path=None, seats_file_name=None, perf_file_name=None,
+          apply_file_name=None, tune_folder=None):
     
     net = net.to(device)
 
@@ -977,9 +981,10 @@ def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10,
         
         # Save the model
         if save_model:
-            if not os.path.isdir('./model'):
-                os.mkdir('./model')
-            torch.save(net.state_dict(), './model/model.pth')
+            model_path = './model' if tune_folder is None else f'./{tune_folder}/model'
+            if not os.path.isdir(model_path):
+                os.makedirs(model_path)
+            torch.save(net.state_dict(), f'{model_path}/model.pth')
 
         # save the checkpoint every 5 epochs
         if epoch % 5 == 4:
@@ -988,14 +993,22 @@ def train(train_loader, net, seat_scaler, lr=0.001, device="cpu", batch_size=10,
                 'state_dict': net.state_dict(),
                 'optimizer': optimizer.state_dict()
             }
-            if not os.path.isdir('./checkpoint'):
-                os.mkdir('./checkpoint')
-            torch.save(checkpoint, './checkpoint/checkpoint_{}.pth'.format(epoch+1))
+            checkpoint_path = './checkpoint' if tune_folder is None else f'./{tune_folder}/checkpoint'
+            if not os.path.isdir(checkpoint_path):
+                os.makedirs(checkpoint_path)
+            torch.save(checkpoint, f'{checkpoint_path}/checkpoint_{epoch+1}.pth')
 
     print('Finished Training')
 
-    final_error_table = evaluate_model(train_loader, net, seat_scaler, device=device, MSE=MSE)
-    print(final_error_table)
+    if tune == False:
+        final_error_table = evaluate_model(train_loader, net, seat_scaler, device=device, MSE=MSE)
+        print(final_error_table)
+    else:
+        # apply_file_name = '\Schedule_Monthly_Summary_2023Q1234.csv'
+        # Load parameters from the JSON file.
+        with open('parameters.json', 'r') as f:
+            args = argparse.Namespace(**json.load(f))
+        RNN_apply_ind.main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_name, tune_folder)
 
     return train_loss, iter_record
 
@@ -1086,7 +1099,7 @@ def evaluate_model(loader, net, seat_scaler, device="cpu", MSE=True, n_times=1):
     return final_error_table
 
 
-def main_program(args, folder_path, seats_file_name, perf_file_name):
+def main_program(args, folder_path, seats_file_name, perf_file_name, apply_file_name=None, tune_folder=None):
     x_features = [
             "Miles", "Deps/Day", "Seats/Day", "Seats/Dep", "Pax/Day", "Pax/Dep",  # 6/6
             "Load Factor", "Lcl %", "Local Pax/Day", "Lcl Fare", "Seg Fare", "Sys Fare",  # 6/12
@@ -1133,6 +1146,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         checkpoint_file_name = "checkpoint.pth"
 
         validation_type = "Val"
+        tune = False
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -1168,6 +1182,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
         skip_quarters = getattr(args, 'skip_quarters', 2)
 
         validation_type = getattr(args, 'validation_type', 'Val')
+        tune = getattr(args, 'tune', False)
 
     ############################# start training #############################
 
@@ -1235,7 +1250,14 @@ def main_program(args, folder_path, seats_file_name, perf_file_name):
                                     device=device, batch_size=batch_size, epochs=epochs, momentum=momentum, 
                                     save_model=True, resume_training=resume_training,
                                     MSE=(MSE_or_GaussianNLLLoss == "MSE"),
-                                    checkpoint_file_name=checkpoint_file_name)
+                                    checkpoint_file_name=checkpoint_file_name,
+                                    tune=tune, folder_path=folder_path, 
+                                    seats_file_name=seats_file_name, 
+                                    perf_file_name=perf_file_name,
+                                    apply_file_name=apply_file_name,
+                                    tune_folder=tune_folder)
+    
+    # Evaluate the model Part
 
     # Plot the training loss
     plt.plot(iter_record, train_loss, label="Training loss")
@@ -1260,6 +1282,7 @@ if __name__ == "__main__":
     folder_path = r'C:\Users\qilei.zhang\OneDrive - Frontier Airlines\Documents\Data\USconti'
     seats_file_name = r'\Schedule_Monthly_Summary_Report_Conti.csv'
     perf_file_name = r'\Airline_Performance_Report_Conti.csv'
+    apply_file_name = '\Schedule_Monthly_Summary_2023Q1234.csv'
 
     # Check if parameters.json file exists, if not create one with default values.
     if not os.path.exists('parameters.json'):
@@ -1297,6 +1320,6 @@ if __name__ == "__main__":
     with open('parameters.json', 'r') as f:
         args = argparse.Namespace(**json.load(f))
     
-    main_program(args, folder_path, seats_file_name, perf_file_name)
+    main_program(args, folder_path, seats_file_name, perf_file_name, apply_file_name=apply_file_name)
 
   

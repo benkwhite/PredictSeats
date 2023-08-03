@@ -873,7 +873,7 @@ class DataAna():
         plt.show()
 
 
-def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_name):
+def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_name, tune_folder=None):
     x_features = [
             "Miles", "Deps/Day", "Seats/Day", "Seats/Dep", "Pax/Day", "Pax/Dep",  # 6/6
             "Load Factor", "Lcl %", "Local Pax/Day", "Lcl Fare", "Seg Fare", "Sys Fare",  # 6/12
@@ -940,6 +940,9 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         # start_year = args.start_year
 
         validation_type = getattr(args, 'validation_type', 'Val')
+
+        validation_type = getattr(args, 'validation_type', 'Val')
+        tune = getattr(args, 'tune', False)
 
     print("-------- Start ----------")
     # record the start time
