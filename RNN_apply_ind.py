@@ -1144,7 +1144,6 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
             except ValueError:
                 print("Invalid input, please enter the airline and route separated by a comma or 'continue' to proceed.")
 
-
     # record the end time
     end_time = time.time()
     time_used = (end_time - start_time) / 60

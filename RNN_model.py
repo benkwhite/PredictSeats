@@ -35,14 +35,6 @@ from matplotlib import pyplot as plt
 
 # import RNN_apply_ind, os, json, argparse
 
-# import the ray package
-# import ray
-# from ray import tune
-# from ray.air import session
-# from ray.air.checkpoint import Checkpoint
-# from ray.tune.schedulers import ASHAScheduler
-
-
 class DatasetFormation():
     def __init__(self, data_root, seats_file, perf_file, x_feat, if_add_time_info=True,
                  sequence_length=12, pred_num_quarters=2, skip_quarters=0,
