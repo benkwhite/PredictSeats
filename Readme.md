@@ -247,7 +247,7 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 4. Consolidation: All validation functions have been consolidated into a single file, `RNN_apply_ind.py`. Running this script will yield validation results.
    - An example of the original data split method for predicting three quarters of data is available here: ![Data Split](./example/DataSplit1.jpg)
    - An updated example of data split for predicting three quarters of data, with a two-quarter skip, is provided here: ![Data Split](./example/DataSplit2.jpg)
-   - Please note that while these quarters are "skipped" for prediction, the scheduled seat data from these quarters are still included as input features.
+   - Please note that while these quarters are "skipped" for prediction, the scheduled seat data from these quarters are still included as input features. However, it is noticed that the model lost its certain predictive power of the seasonality by adding the skipped quarters' data as input features although the model prediction accuracy is improved.
    - The assumption here is that the fixed schedule for the next two quarters is known at the time of the last published performance data.
    - It is worth mentioning that while the model is capable of predicting an arbitrary number of quarters, it is often advantageous to limit these predictions to fewer quarters for two main reasons:
      - **Data Perspective**: By predicting fewer quarters, more historical data is available for model training, especially the stable data after the pandemic. 

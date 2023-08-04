@@ -794,7 +794,7 @@ class DataAna():
 
         return result_df
     
-    def plot_prediction(self, al, alpha):
+    def plot_prediction(self, al, alpha, on_apply_data=True):
         """
         Use it after run calculate_metrics_new
         """
@@ -876,7 +876,9 @@ class DataAna():
         plt.title(f'Seats Trend for {al} {alpha}', fontsize=16)
         plt.xlabel('Date (Quarter)', fontsize=14)
         plt.ylabel('Seats', fontsize=14)
-        plt.ylim(bottom=0)
+
+        if not on_apply_data:
+            plt.ylim(bottom=0)
 
         # Increase tick label size
         plt.xticks(fontsize=12)
@@ -1138,7 +1140,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
                 airline, route = user_input.split(',')
                 airline = airline.strip()  # remove possible leading/trailing whitespaces
                 route = route.strip()  # remove possible leading/trailing whitespaces
-                ana.plot_prediction(airline, route)
+                ana.plot_prediction(airline, route, on_apply_data=(validation_type=='Val'))
             except ValueError:
                 print("Invalid input, please enter the airline and route separated by a comma or 'continue' to proceed.")
 
