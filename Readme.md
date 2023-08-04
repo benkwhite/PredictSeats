@@ -21,12 +21,13 @@ To train the model, follow these steps:
    - Modify the parameters in the `parameters.json` file as per your requirement. This allows you to fine-tune various aspects of the model like the number of layers, learning rate, number of epochs, etc.
 
 ## Shortcut Tasks
-All the quick steps code are in the `run.ipynb` file. The following describes the all the tasks in the notebook.
-- Data Validation (test last quarters' data with schedule data settled) 
-- Add new performance data and seats data to original data (when new data performance data is available)
-- Date Split Test (Check if the data split is correct )
-- Automatically tune the hyperparameters and record the results (Only run it on Azure Databricks)
-- Predict the future quarters (no schedule data as comparison) 
+
+The `run.ipynb` notebook contains quick steps for performing various tasks. These tasks include:
+- Data Validation: Testing the latest quarters' data against settled schedule data.
+- Data Update: Adding new performance data and seat data to existing datasets, when new performance data becomes available.
+- Data Split Test: Checking the correctness of data splitting.
+- Hyperparameter Tuning: Automated hyperparameter tuning with results recording (intended for execution on Azure Databricks).
+- Future Predictions: Making predictions for future quarters, without the comparison of schedule data.
 
 ## Execution Environment
 ### Local Machine (Not recommended due to speed limitations, but useful for testing the code)
@@ -242,21 +243,22 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 1. Introduced a choice between Mean Squared Error (MSE) and Gaussian Negative Log Likelihood (GaussianNLLLoss) for the loss function. GaussianNLLLoss is the default. For MSE, if a confidence interval is desired, the Monte Carlo method must be used, although results have been sub-optimal.
 2. Optimized root folder organization, categorizing files into specific folders. New folders are automatically created as needed.
 3. Encapsulated the main function into `main_program()` for clarity and easy execution.
-4. Consolidated all validation functions into a single file, `RNN_apply_ind.py`. Executing this script will generate validation results.
-   - An origin data split example for predicting three quarters of data can be found here: ![Data Split](./example/DataSplit1.jpg)
-   - An updated data split example for predicting two quarters of data and with threee quarters skip can be found here: ![Data Split](./example/DataSplit2.jpg)
-   - Here, we assume that we know the fixed schedule for the next two quarters from the last published performance data. 
-   - Although the model is capable of predicting an arbitrary number of quarters, it is recommended to limit the number of quarters being predicted. This approach has two main benefits: 
-     - **Data Perspective**: By predicting fewer quarters, more historical data is available for model training. 
+4. Consolidation: All validation functions have been consolidated into a single file, `RNN_apply_ind.py`. Running this script will yield validation results.
+   - An example of the original data split method for predicting three quarters of data is available here: ![Data Split](./example/DataSplit1.jpg)
+   - An updated example of data split for predicting three quarters of data, with a two-quarter skip, is provided here: ![Data Split](./example/DataSplit2.jpg)
+   - Please note that while these quarters are "skipped" for prediction, the scheduled seat data from these quarters are still included as input features.
+   - The assumption here is that the fixed schedule for the next two quarters is known at the time of the last published performance data.
+   - It is worth mentioning that while the model is capable of predicting an arbitrary number of quarters, it is often advantageous to limit these predictions to fewer quarters for two main reasons:
+     - **Data Perspective**: By predicting fewer quarters, more historical data is available for model training, especially the stable data after the pandemic. 
      - **Model Perspective**: Predicting fewer quarters allows the model to focus on a smaller time frame, reducing the variables that need to be balanced within the loss function.
-
 5. Moved all parameters to a `parameters.json` file for easy modification.
 6. Optimized several functions for efficiency and performance.
 7. Added interactive features prompting users to select desired route results.
-8. Introduced a checkpoint function to save the model and optimizer for later use.
-9. Fixed various bugs, including handling inconsistent numbers of departure and arrival airports in the schedule and performance files, and ensuring the start year isn't restricted to the initial year of the dataset.
-10. Add the ability to skip the current quarter(s) to satisfy the requirement of predicting future quarters.
-11. Add the tuning hyperparameters function to automatically tune the hyperparameters and record the results.
+8.  Introduced a checkpoint function to save the model and optimizer for later use.
+9.  Bug Fixes: Various bugs have been addressed, such as handling inconsistent numbers of departure and arrival airports in the schedule and performance files, and not restricting the start year to the beginning year of the dataset.
+10. Current Quarter Skipping: The model now allows skipping of current quarter(s) to facilitate predictions for future quarters.
+11. Hyperparameter Tuning: Added functionality for automatic hyperparameter tuning and result recording.
+12. Future Predictions: Implemented a feature to predict future quarters, in absence of comparison schedule data.
 
 
 ### Deprecated Features
