@@ -265,7 +265,7 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 Several outdated functions have been removed in the current version.
 
 ### Appreciation
-1. Thanks to Vishesh's contribution, population data was updated to (2005, 2015, 2020) from the earlier (2005, 2015, 2019) using Excel functions.
+1. Thanks to Vishesh's suggestion, population data was updated to (2005, 2015, 2020) from the earlier (2005, 2015, 2019) using Excel functions.
 2. Thanks to Stephen's personal support, the model can be tested on Google Colab.
 3. Thanks to Teng's help, the model can be tested on Azure Databricks.
 
