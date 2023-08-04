@@ -145,7 +145,7 @@ class Validation(DatasetFormation):
         # self.save_scaled_data_val()  # temporary comment
         
         # prepare the validation data
-        self.final_preparation_val(start_quarter)
+        self.final_preparation_val(boundary_quarter=start_quarter, on_apply_data=on_apply_data)
         print("Validation data prepared.")
 
     def scaler_data_val(self):
@@ -184,7 +184,7 @@ class Validation(DatasetFormation):
         else:
             print("The dataset has not been scaled yet.")
 
-    def final_preparation_val(self, start_quarter='Q1 2023'):
+    def final_preparation_val(self, boundary_quarter='Q1 2023', on_apply_data=True):
         # Create binary features for the quarter
         # self.scaled_df = pd.get_dummies(self.scaled_df, columns=['year', 'quarter'])
         # group the dataframe for each airline and each route
@@ -199,48 +199,87 @@ class Validation(DatasetFormation):
             # debug
             # if key == ('AA', 'DEN', 'LAX'):
             #     print('found number')
+            # if len(seats_df) == 4:
+            #     print('found number')
 
-            if len(route_df) < (self.seq_len + self.skip_quarters):
-                continue
-            
-            # Get the end quarter of seats (start quarter + prediction quarters)
-            qtr, year = start_quarter.split(' ')
-            qtr = int(qtr[1])  # Convert 'Qx' to an integer
-            year = int(year)
+            if on_apply_data:
+                if len(route_df) < (self.seq_len + self.skip_quarters):
+                    continue
 
-            if self.skip_quarters==0:
+                # Get the end quarter of seats (start quarter + prediction quarters)
+                qtr, year = boundary_quarter.split(' ')
+                qtr = int(qtr[1])  # Convert 'Qx' to an integer
+                year = int(year)
+
+                if self.skip_quarters==0:
+                    qtr += 1
+                    while qtr > 4:
+                        qtr -= 4
+                        year += 1
+                    start_quarter = f'Q{qtr} {year}'
+                else:
+                    start_quarter = boundary_quarter
+
+                qtr += (self.n_future - 1)
+                while qtr > 4:
+                    qtr -= 4
+                    year += 1
+                end_quarter = f'Q{qtr} {year}'
+
+                seats_start_date = int(start_quarter.split(' ')[1]) * 4 + int(start_quarter.split(' ')[0][1])
+                seats_end_date = int(end_quarter.split(' ')[1]) * 4 + int(end_quarter.split(' ')[0][1])
+                # seats_df[seats_df['SortDate'] >= seats_start_date]
+                seats_df = seats_df[(seats_df['SortDate'] >= seats_start_date) & (seats_df['SortDate'] <= seats_end_date)]
+                
+                if len(seats_df) > 0:
+                    # Get the seats values to list
+                    seats_list = seats_df['Seats'].values
+
+                    # fill out 0 for the seats_list if the seats_list is not long enough
+                    if len(seats_df) < self.n_future:
+                        seats_list = list(seats_list) + [0] * (self.n_future - len(seats_df))
+                else:
+                    seats_list = [0] * self.n_future # in case there is no seats data for the route
+            else:
+                if len(route_df) < self.seq_len:
+                    continue
+
+                # Get the end quarter of seats (start quarter + prediction quarters)
+                qtr, year = boundary_quarter.split(' ')
+                qtr = int(qtr[1])  # Convert 'Qx' to an integer
+                year = int(year)
+
+                # if self.skip_quarters==0:
                 qtr += 1
                 while qtr > 4:
                     qtr -= 4
                     year += 1
                 start_quarter = f'Q{qtr} {year}'
+                
+                qtr += (self.skip_quarters + self.n_future - 1)
+                while qtr > 4:
+                    qtr -= 4
+                    year += 1
+                end_quarter = f'Q{qtr} {year}'
 
-            qtr += (self.n_future - 1)
-            while qtr > 4:
-                qtr -= 4
-                year += 1
-            end_quarter = f'Q{qtr} {year}'
+                seats_start_date = int(start_quarter.split(' ')[1]) * 4 + int(start_quarter.split(' ')[0][1])
+                seats_end_date = int(end_quarter.split(' ')[1]) * 4 + int(end_quarter.split(' ')[0][1])
+                # seats_df[seats_df['SortDate'] >= seats_start_date]
+                seats_df = seats_df[(seats_df['SortDate'] >= seats_start_date) & (seats_df['SortDate'] <= seats_end_date)]
 
-            seats_start_date = int(start_quarter.split(' ')[1]) * 4 + int(start_quarter.split(' ')[0][1])
-            seats_end_date = int(end_quarter.split(' ')[1]) * 4 + int(end_quarter.split(' ')[0][1])
-            # seats_df[seats_df['SortDate'] >= seats_start_date]
-            seats_df = seats_df[(seats_df['SortDate'] >= seats_start_date) & (seats_df['SortDate'] <= seats_end_date)]
-            
-            if len(seats_df) > 0:
-                # Get the seats values to list
-                seats_list = seats_df['Seats'].values
+                if len(seats_df) < self.skip_quarters:
+                    continue
 
-                # fill out 0 for the seats_list if the seats_list is not long enough
-                if len(seats_df) < self.n_future:
-                    seats_list = list(seats_list) + [0] * (self.n_future - len(seats_df))
-            else:
-                seats_list = [0] * self.n_future # when do current quarter prediction, the seats_list is empty
+                if len(seats_df) < (self.skip_quarters + self.n_future):
+                    # seats_list = list(seats_list) + [0] * (self.n_future - len(seats_df))
+                    seats_list = list(seats_df['Seats'].values) + [0] * (self.skip_quarters + self.n_future - len(seats_df))    
 
             route_df = route_df.sort_values("Date_delta")
             datasets.append(FlightDataset(route_df, self.seq_len, self.num_features,
                                           self.cat_features, self.skip_quarters,
                                           time_add=self.time_add, seats_values=seats_list,
-                                          n_future=self.n_future))
+                                          n_future=self.n_future, on_apply_data=on_apply_data,
+                                          seat_scaler=self.seat_scaler))
         self.full_df = torch.utils.data.ConcatDataset(datasets)
 
     def save_scaled_data_val(self, filename='scaled_data_apply.csv'):
@@ -254,7 +293,8 @@ class FlightDataset(Dataset):
     Create a dataset that can be used for dataloading.
     """
     def __init__(self, df, sequence_length, num_feat, cat_feat, skip_qrts,
-                 time_add=True, seats_values=None, n_future=2):
+                 time_add=True, seats_values=None, n_future=2, on_apply_data=True,
+                 seat_scaler=None):
         self.df = df
         self.sequence_length = sequence_length
         self.num_features = num_feat
@@ -268,14 +308,16 @@ class FlightDataset(Dataset):
         else:
             self.num_features = self.num_features + self.dummy_quarter
 
-        # if seats_values is None:
-        #     self.seats_values = [0] * n_future
-        # else:
-        #     self.seats_values = seats_values
         self.seats_values = seats_values
+        self.on_apply_data = on_apply_data
+        self.n_future = n_future
+        self.seat_scaler = seat_scaler
 
     def __len__(self):
-        return len(self.df) - self.sequence_length - self.skip_qrts + 1
+        if self.on_apply_data:
+            return len(self.df) - self.sequence_length - self.skip_qrts + 1
+        else:
+            return len(self.df) - self.sequence_length + 1
 
     def __getitem__(self, idx):
         # Get the relevant slice of the dataframe
@@ -286,13 +328,27 @@ class FlightDataset(Dataset):
         cat_sequence_data = torch.LongTensor(df_slice[self.cat_features].values)
 
         if self.skip_qrts > 0:
-            # Get the relevant slice of the dataframe for the seats of skip quarters
-            df_skip_slice = self.df.iloc[(idx + self.sequence_length) : 
-                                        (idx + self.sequence_length + self.skip_qrts)]
+            if self.on_apply_data:
+                # Get the relevant slice of the dataframe for the seats of skip quarters
+                df_skip_slice = self.df.iloc[(idx + self.sequence_length) : 
+                                            (idx + self.sequence_length + self.skip_qrts)]
 
-            # attaching the skip quarter seats as a feature to the sequence data
-            skip_values = df_skip_slice['Seats'].values.repeat(self.sequence_length).reshape(-1, self.sequence_length).T
-            sequence_data = np.concatenate((sequence_data, skip_values), axis=1)
+                # attaching the skip quarter seats as a feature to the sequence data
+                skip_values = df_skip_slice['Seats'].values.repeat(self.sequence_length).reshape(-1, self.sequence_length).T
+                sequence_data = np.concatenate((sequence_data, skip_values), axis=1)
+            else:
+                # Get the relevant slice of the dataframe for the seats of skip quarters 
+                # from the seats_values with the number of skip quarters
+                df_skip_slice = self.seats_values[: self.skip_qrts]
+                df_skip_slice = np.array(df_skip_slice).reshape(-1, 1)
+
+                # use scaler to transform the skip quarter seats
+                df_skip_slice = self.seat_scaler.transform(df_skip_slice)
+                df_skip_slice = df_skip_slice.flatten()
+
+                # attaching the skip quarter seats as a feature to the sequence data
+                skip_values = df_skip_slice.repeat(self.sequence_length).reshape(-1, self.sequence_length).T
+                sequence_data = np.concatenate((sequence_data, skip_values), axis=1)
 
         # Get the relevant slice of the dataframe for the target seats
         # df_target_slice = self.df.iloc[idx + self.sequence_length : idx + self.sequence_length]
@@ -306,14 +362,18 @@ class FlightDataset(Dataset):
 
         # "Seats" is the 19th column (0-indexed)
         # target_data = df_target_slice["Seats"].values 
-        target_data = self.seats_values
+
+        if self.on_apply_data:    
+            target_data = self.seats_values
+        else:
+            target_data = self.seats_values[self.skip_qrts:]
 
         # Return the sequence data and the target value. "Seats" is the 19th column (0-indexed)
         # return torch.from_numpy(sequence_data[:-1]), torch.tensor(sequence_data[-1, 18])  
         return torch.from_numpy(sequence_data), cat_sequence_data, torch.tensor(target_data), time_range, loc_key
     
 
-def validation(loader, net, seat_scaler, device='cpu', n_times=1, MSE=True, tune_folder=None):
+def validation(loader, net, seat_scaler, device='cpu', n_times=1, MSE=True, tune_folder=None, on_apply_data=True):
     # Set the network to evaluation mode
     net = net.to(device) 
 
@@ -449,7 +509,8 @@ def validation(loader, net, seat_scaler, device='cpu', n_times=1, MSE=True, tune
         error_table_filename = f'./{tune_folder}/results/error_table_apply.csv'
     final_error_table.to_csv(error_table_filename, index=False)
 
-    print(final_error_table)
+    if on_apply_data:
+        print(final_error_table)
 
     return all_outputs_unscaled, all_seats_unscaled, all_std_unscaled, all_loc_key
 
@@ -1046,7 +1107,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     # validate the model
     outputs, seats, stds, keys = validation(dataloader, net, data_format.seat_scaler, 
                                             device, MSE=(MSE_or_GaussianNLLLoss=='MSE'),
-                                            tune_folder=tune_folder)
+                                            tune_folder=tune_folder,
+                                            on_apply_data=(validation_type=='Val'))
 
     route_dict = create_route_dict(outputs, seats, stds, keys)
     orig_df = data_format.test_df

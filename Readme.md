@@ -20,6 +20,14 @@ To train the model, follow these steps:
 3. **Parameter Adjustment**: 
    - Modify the parameters in the `parameters.json` file as per your requirement. This allows you to fine-tune various aspects of the model like the number of layers, learning rate, number of epochs, etc.
 
+## Shortcut Tasks
+All the quick steps code are in the `run.ipynb` file. The following describes the all the tasks in the notebook.
+- Data Validation (test last quarters' data with schedule data settled) 
+- Add new performance data and seats data to original data (when new data performance data is available)
+- Date Split Test (Check if the data split is correct )
+- Automatically tune the hyperparameters and record the results (Only run it on Azure Databricks)
+- Predict the future quarters (no schedule data as comparison) 
+
 ## Execution Environment
 ### Local Machine (Not recommended due to speed limitations, but useful for testing the code)
 
@@ -246,13 +254,18 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 6. Optimized several functions for efficiency and performance.
 7. Added interactive features prompting users to select desired route results.
 8. Introduced a checkpoint function to save the model and optimizer for later use.
-9.  Fixed various bugs, including handling inconsistent numbers of departure and arrival airports in the schedule and performance files, and ensuring the start year isn't restricted to the initial year of the dataset.
+9. Fixed various bugs, including handling inconsistent numbers of departure and arrival airports in the schedule and performance files, and ensuring the start year isn't restricted to the initial year of the dataset.
 10. Add the ability to skip the current quarter(s) to satisfy the requirement of predicting future quarters.
-11. Thanks to Vishesh's contribution, population data was updated to (2005, 2015, 2020) from the earlier (2005, 2015, 2019) using Excel functions.
-12. Thanks to Stephen's personal support, the model can be tested on Google Colab.
+11. Add the tuning hyperparameters function to automatically tune the hyperparameters and record the results.
+
 
 ### Deprecated Features
 Several outdated functions have been removed in the current version.
+
+### Appreciation
+1. Thanks to Vishesh's contribution, population data was updated to (2005, 2015, 2020) from the earlier (2005, 2015, 2019) using Excel functions.
+2. Thanks to Stephen's personal support, the model can be tested on Google Colab.
+3. Thanks to Teng's help, the model can be tested on Azure Databricks.
 
 
 ## Expectation?
