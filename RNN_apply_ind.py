@@ -146,6 +146,7 @@ class Validation(DatasetFormation):
         
         # prepare the validation data
         self.final_preparation_val(boundary_quarter=start_quarter, on_apply_data=on_apply_data)
+        # self.final_preparation_val_new(boundary_quarter=start_quarter, on_apply_data=on_apply_data)
         print("Validation data prepared.")
 
     def scaler_data_val(self):

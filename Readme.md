@@ -19,6 +19,7 @@ To train the model, follow these steps:
 
 3. **Parameter Adjustment**: 
    - Modify the parameters in the `parameters.json` file as per your requirement. This allows you to fine-tune various aspects of the model like the number of layers, learning rate, number of epochs, etc.
+   - Here are the detailed explanation for all the parameteres in .json.
 
 ## Shortcut Tasks
 
@@ -227,7 +228,7 @@ To run the model using Azure Databricks, follow these steps:
 #### Special Notes: Methods to Download Files from Azure Databricks to Local Machine
 You can retrieve the model and checkpoint files using either the Databricks CLI or via your web browser:
 
-1. **Databricks CLI**: Use the CLI to download files to your local machine. First, install the Databricks CLI with `pip install databricks-cli`. Set up an access token with `databricks configure --token` and check the connection with `databricks fs ls dbfs:/`. Finally, download your desired file with `databricks fs cp <file_path_on_dbfs> <local_path>`, e.g., `databricks fs cp dbfs:/FileStore/test.txt ./test.txt`.
+1. **Databricks CLI**: Use the CLI to download files to your local machine. First, install the Databricks CLI with `pip install databricks-cli`. Set up an access token with `databricks configure --token` and check the connection with `databricks fs ls dbfs:/`. Finally, download your desired file with `databricks fs cp <file_path_on_dbfs> <local_path>`, e.g., `databricks fs cp dbfs:/FileStore/test.txt ./test.txt`. If you can't paste the token into the terminal, find the token place in the `C:\Users\qilei.zhang\.databrickscfg` file and replace the token with the one you just created.
 
 2. **Web Browser**: You can also directly download the files via your web browser by navigating to the URL `https://<databricks_instance>/files/path/to/file?o=<workspaceID>`. For example, `https://adb-7094xxxxx.11.azuredatabricks.net/files/SeatPre/RunModelv5/model/model.pth?o=7094xxxxxx`
 
