@@ -193,14 +193,6 @@ class Validation(DatasetFormation):
         for key, route_df in self.scaled_df.groupby(["Mkt Al", "Orig", "Dest"]):
             # Get the value of the seats from applying data
             seats_df = self.apply_sch_df[(self.apply_sch_df['Mkt Al'] == key[0]) & (self.apply_sch_df['Orig'] == key[1]) & (self.apply_sch_df['Dest'] == key[2])]
-            # if len(seats_df) > self.n_future:
-            #     seats_df = seats_df.iloc[:self.n_future, :]
-
-            # debug
-            # if key == ('AA', 'DEN', 'LAX'):
-            #     print('found number')
-            # if len(seats_df) == 4:
-            #     print('found number')
 
             if on_apply_data:
                 if len(route_df) < (self.seq_len + self.skip_quarters):
@@ -287,10 +279,77 @@ class Validation(DatasetFormation):
         self.scaled_df.to_csv(filename, index=False)
         print("Scaled applying data saved.")
 
+    def get_next_quarter(self, qtr, year, increment=1):
+        qtr += increment
+        while qtr > 4:
+            qtr -= 4
+            year += 1
+        return f'Q{qtr} {year}'
+
+    def quarter_to_date(self, quarter):
+        qtr, year = quarter.split(' ')
+        qtr = int(qtr[1])
+        year = int(year)
+        return year * 4 + qtr
+    
+    def get_seats_df(self, seats_df, start_quarter, end_quarter):
+        seats_start_date = self.quarter_to_date(start_quarter)
+        seats_end_date = self.quarter_to_date(end_quarter)
+        seats_df = seats_df[(seats_df['SortDate'] >= seats_start_date) & (seats_df['SortDate'] <= seats_end_date)]
+        return seats_df
+
     def final_preparation_val_new(self, boundary_quarter='Q1 2023', on_apply_data=True):
         self.scaled_df = pd.get_dummies(self.scaled_df, columns=['quarter'])
         datasets = []
 
+        qtr, year = boundary_quarter.split(' ')
+        qtr = int(qtr[1])
+        year = int(year)
+
+        if on_apply_data:
+            start_quarter = self.get_next_quarter(qtr, year) if self.skip_quarters == 0 else boundary_quarter
+            end_quarter = self.get_next_quarter(qtr, year, self.n_future - 1)
+        else:
+            start_quarter = self.get_next_quarter(qtr, year)
+            end_quarter = self.get_next_quarter(qtr, year, self.skip_quarters + self.n_future - 1)
+
+        for key, route_df in self.scaled_df.groupby(["Mkt Al", "Orig", "Dest"]):
+            # Get the value of the seats from applying data
+            seats_df = self.apply_sch_df[
+                (self.apply_sch_df['Mkt Al'] == key[0]) & 
+                (self.apply_sch_df['Orig'] == key[1]) & 
+                (self.apply_sch_df['Dest'] == key[2])
+            ]
+
+            seats_df = self.get_seats_df(seats_df, start_quarter, end_quarter)
+
+            if on_apply_data:
+                if len(route_df) < (self.seq_len + self.skip_quarters):
+                    continue
+                seats_list = seats_df['Seats'].values if len(seats_df) > 0 else [0] * self.n_future
+                # fill out 0 for the seats_list if the seats_list is not long enough
+                if len(seats_df) < self.n_future:
+                    seats_list = list(seats_list) + [0] * (self.n_future - len(seats_df))
+            else:
+                if len(route_df) < self.seq_len:
+                    continue
+                if len(seats_df) < self.skip_quarters:
+                    continue
+
+                seats_list = list(seats_df['Seats'].values) + [0] * (self.skip_quarters + self.n_future - len(seats_df))
+
+            route_df = route_df.sort_values("Date_delta")
+            datasets.append(
+                FlightDataset(route_df, self.seq_len, self.num_features,
+                            self.cat_features, self.skip_quarters,
+                            time_add=self.time_add, seats_values=seats_list,
+                            n_future=self.n_future, on_apply_data=on_apply_data,
+                            seat_scaler=self.seat_scaler)
+            )
+
+        self.full_df = torch.utils.data.ConcatDataset(datasets)
+
+        
 class FlightDataset(Dataset):
     """
     Create a dataset that can be used for dataloading.
