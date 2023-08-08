@@ -287,6 +287,9 @@ class Validation(DatasetFormation):
         self.scaled_df.to_csv(filename, index=False)
         print("Scaled applying data saved.")
 
+    def final_preparation_val_new(self, boundary_quarter='Q1 2023', on_apply_data=True):
+        self.scaled_df = pd.get_dummies(self.scaled_df, columns=['quarter'])
+        datasets = []
 
 class FlightDataset(Dataset):
     """
@@ -1011,6 +1014,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
 
         validation_type = 'Val'
         tune = False
+        use_bn = True
+        activation_num = 0
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -1038,6 +1043,9 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
 
         validation_type = getattr(args, 'validation_type', 'Val')
         tune = getattr(args, 'tune', False)
+
+        use_bn = getattr(args, 'use_bn', True)
+        activation_num = getattr(args, 'activation_num', 0)
 
     print("-------- Start ----------")
     # record the start time
@@ -1098,7 +1106,8 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
              n_layers=n_layers, drop_prob=drop_prob, rnn_type=rnn_type,
              bidirectional=bidirectional, num_heads=num_heads, 
              if_skip=if_skip, if_feed_drop=if_feed_drop, if_feed_norm=if_feed_norm,
-             MSE=(MSE_or_GaussianNLLLoss=='MSE'))
+             MSE=(MSE_or_GaussianNLLLoss=='MSE'), use_bn=use_bn, 
+             activation_num=activation_num)
 
     # load the model
     # model_path = r'./model/model.pth'
