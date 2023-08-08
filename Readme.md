@@ -241,6 +241,7 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 
 ## Version History
 ### Enhancements and New Features
+#### 8/5/2023
 1. Introduced a choice between Mean Squared Error (MSE) and Gaussian Negative Log Likelihood (GaussianNLLLoss) for the loss function. GaussianNLLLoss is the default. For MSE, if a confidence interval is desired, the Monte Carlo method must be used, although results have been sub-optimal.
 2. Optimized root folder organization, categorizing files into specific folders. New folders are automatically created as needed.
 3. Encapsulated the main function into `main_program()` for clarity and easy execution.
@@ -261,6 +262,20 @@ You can retrieve the model and checkpoint files using either the Databricks CLI 
 11. Hyperparameter Tuning: Added functionality for automatic hyperparameter tuning and result recording.
 12. Future Predictions: Implemented a feature to predict future quarters, in absence of comparison schedule data.
 
+#### 8/8/2023
+1. Added a feature to automatically switch the activation functions in dictionary.
+```python
+self.activation_dict = {
+        0: nn.ReLU(),
+        1: nn.Tanh(),
+        2: nn.Sigmoid(),
+        3: nn.ELU(),
+        4: nn.SiLU(),
+        5: nn.LeakyReLU()
+        }
+```
+2. Add a feature to automatically switch the batch normalization to layer normalization.
+
 
 ### Deprecated Features
 Several outdated functions have been removed in the current version.
@@ -277,5 +292,6 @@ Several outdated functions have been removed in the current version.
    - Error message from Diio `Sorry, the latest travel date accessible to your account is [2023-Jan-01].` 
 3. Minor changes could be updated in the future.
    - Make use of the interrupted route data, such as "AA, DENLAS" in Q2 2020 using postition encoding.
-4. MAE loss function? Huber Loss?
+4. MAE loss function? Huber Loss? layer normalization? check
 5. Use All attention?
+6. Activation function: ReLU, LeakyReLU, ELU, SELU, GELU, Swish, Mish, etc. check

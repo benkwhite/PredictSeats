@@ -658,7 +658,8 @@ class RNNNet(nn.Module):
     """
     def __init__(self, cat_feat, cat_mapping, embed_dim_mapping, input_dim=51, hidden_dim=100, 
                  output_dim=1, n_layers=2, drop_prob=0.2, rnn_type="GRU", bidirectional=True, 
-                 num_heads=8, if_skip=True, if_feed_drop=True, if_feed_norm=True, MSE=True):
+                 num_heads=8, if_skip=True, if_feed_drop=True, if_feed_norm=True, MSE=True,
+                 use_bn=True, activation_num=0):
         super(RNNNet, self).__init__()
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
@@ -670,6 +671,7 @@ class RNNNet(nn.Module):
         self.bidirect = bidirectional
         self.num_heads = num_heads
         self.MSE = MSE
+        self.use_bn = use_bn
 
         # Define the embedding layers for categorical features
         self.embeddings = nn.ModuleDict({
@@ -705,10 +707,25 @@ class RNNNet(nn.Module):
         self.bn1 = nn.BatchNorm1d(hidden_dim)
         self.bn2 = nn.BatchNorm1d(hidden_dim)
 
+        # Adding Layer Normalization
+        self.ln1 = nn.LayerNorm(hidden_dim)
+        self.ln2 = nn.LayerNorm(hidden_dim)
+
         # self.fc = nn.Linear(hidden_dim, output_dim) # output_dim should now be n_future
         self.fc_mean = nn.Linear(hidden_dim, output_dim) 
         self.fc_std = nn.Linear(hidden_dim, output_dim) 
-        self.relu = nn.ReLU()  
+
+        # Define various activation functions
+        self.activation_dict = {
+            0: nn.ReLU(),
+            1: nn.Tanh(),
+            2: nn.Sigmoid(),
+            3: nn.ELU(),
+            4: nn.SiLU(),
+            5: nn.LeakyReLU()
+        }
+        self.activation = self.activation_dict[activation_num]
+        # self.relu = nn.ReLU()  # ReLU is used for the feed-forward layers
 
     def forward(self, x, cat_x, h):
         x_embed = [self.embeddings[f](cat_x[:, :, i]) for i, f in enumerate(self.cat_features)]
@@ -738,11 +755,22 @@ class RNNNet(nn.Module):
 
         out = torch.mean(out, dim=1)
         
-        out = self.bn1(out)
-        out = self.relu(out)
+        # Depending on the switch use Batch Norm or Layer Norm
+        if self.use_bn:
+            out = self.bn1(out)
+        else:
+            out = self.ln1(out)
 
-        out = self.bn2(out)
-        out = self.relu(out)
+        # out = self.relu(out)
+        out = self.activation(out)
+
+        if self.use_bn:
+            out = self.bn2(out)
+        else:
+            out = self.ln2(out)
+
+        # out = self.relu(out)
+        out = self.activation(out)
 
         if not self.MSE:
             mean = self.fc_mean(out)
@@ -1147,6 +1175,8 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, tune_folder
 
         validation_type = "Val"
         tune = False
+        use_bn = True
+        activation_num = 0
     else:
         print("Using the provided arguments.")
         # Control if resume training
@@ -1183,6 +1213,8 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, tune_folder
 
         validation_type = getattr(args, 'validation_type', 'Val')
         tune = getattr(args, 'tune', False)
+        use_bn = getattr(args, 'use_bn', True)
+        activation_num = getattr(args, 'activation_num', 0)
 
     ############################# start training #############################
 
@@ -1243,7 +1275,8 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, tune_folder
              n_layers=n_layers, drop_prob=drop_prob, rnn_type=rnn_type,
              bidirectional=bidirectional, num_heads=num_heads, 
              if_skip=if_skip, if_feed_drop=if_feed_drop, if_feed_norm=if_feed_norm,
-             MSE=(MSE_or_GaussianNLLLoss == "MSE"))
+             MSE=(MSE_or_GaussianNLLLoss == "MSE"), use_bn=use_bn, 
+             activation_num=activation_num)
     
     # Train the model for the first time
     train_loss, iter_record = train(dataloader, net, seat_scaler=data_format.seat_scaler ,lr=learning_rate, 
@@ -1312,6 +1345,9 @@ if __name__ == "__main__":
             "start_quarter": "Q4 2022",
             "skip_quarters": 0,
             "validation_type": "Val",
+            "tune": False,
+            "use_bn": True,
+            "activation_num": 0
         }
         with open('parameters.json', 'w') as f:
             json.dump(parameters, f)
