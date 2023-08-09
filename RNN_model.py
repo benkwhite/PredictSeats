@@ -707,10 +707,9 @@ class RNNNet(nn.Module):
         self.bn1 = nn.BatchNorm1d(hidden_dim)
         self.bn2 = nn.BatchNorm1d(hidden_dim)
 
-        if not self.use_bn:
-            # Adding Layer Normalization
-            self.ln1 = nn.LayerNorm(hidden_dim)
-            self.ln2 = nn.LayerNorm(hidden_dim)
+        # Adding Layer Normalization
+        self.ln1 = nn.LayerNorm(hidden_dim)
+        self.ln2 = nn.LayerNorm(hidden_dim)
 
         # self.fc = nn.Linear(hidden_dim, output_dim) # output_dim should now be n_future
         self.fc_mean = nn.Linear(hidden_dim, output_dim) 

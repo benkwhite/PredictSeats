@@ -19,7 +19,35 @@ To train the model, follow these steps:
 
 3. **Parameter Adjustment**: 
    - Modify the parameters in the `parameters.json` file as per your requirement. This allows you to fine-tune various aspects of the model like the number of layers, learning rate, number of epochs, etc.
-   - Here are the detailed explanation for all the parameteres in .json.
+   - Here are the detailed explanation for all the parameteres in `parameters.json`. Some of the parameters do not need to be changed often for the model to work properly. These parameters are marked with `*` in the following list.
+     1. `resume_training`: If set to `True`, the model will resume training from the last checkpoint. Make sure `checkpoint.pth` exists and `checkpoint_file_name` is correct in the `checkpoint` folder. If set to `False`, the model will start training from scratch. The default is `False`.
+     2. $^*$`MSE_or_GaussianNLLLoss`: If set to `MSE`, the loss function will be Mean Squared Error (MSE). If set to `GaussianNLLLoss`, the loss function will be Gaussian Negative Log Likelihood (GaussianNLLLoss). The default is `GaussianNLLLoss`.
+     3. $^*$`pred_num_quarters`: The number of quarters to be predicted. The default is 3.
+     4. $^*$`seq_num`: The number of quarters to be used as input features. The default is 10.
+     5. $^*$`if_add_time_info`: If set to `True`, the time information (year information) will be added as input features. If set to `False`, the time information will not be added as input features. Default is `False`.
+     6. `learning_rate`: The learning rate for the optimizer. The default is 1e-04.
+     7. `momentum`: The momentum for the optimizer. The default is 0.95.
+     8. $^*$`batch_size`: The batch size for the training process. The default is 64. 
+     9. `epochs`: The number of epochs for the training process. The default is 20 or 30. The more epochs, the better fit of the model to the training data. However, too many epochs may lead to overfitting.
+     10. `num_workers`: The number of workers for the data loader. Adjust this parameter based on training environment. Use 1 for local machine, 4 for Google Colab, and 8 for Azure Databricks.
+     11. $^*$`shuffle`: If set to `True`, the data loader will shuffle the data. If set to `False`, the data loader will not shuffle the data. The default is `True`.
+     12. $^*$`fixed_seed`: If set to `True`, the random seed will be fixed. If set to `False`, the random seed will not be fixed. The default is `True`.
+     13. $^*$`rnn_type`: The type of RNN to be used. The default is `LSTM`.
+     14. `n_layers`: The number of layers for the RNN. The default is 4.
+     15. `drop_prob`: The dropout probability for the RNN and the fully connected layer. The default is 0.35.
+     16. $^*$`num_heads`: The number of heads for the multi-head attention layer. The default is 6.
+     17. $^*$`start_year`: The start year of the training data. The default is 2004 since the data starts from 2004.
+     18. `checkpoint_file_name`: The name of the checkpoint file. The default is `checkpoint_x.pth`. `x` is the number of epochs.
+     19. `bidirectional`: If set to `True`, the RNN will be bidirectional. If set to `False`, the RNN will not be bidirectional. The default is `False`.
+     20. $^*$`if_skip`: If set to `True`, the model will skip the current quarter(s) and only add the scheduled seat data as input features. If set to `False`, the model will not skip the current quarter(s). The default is `True`.
+     21. $^*$`if_feed_drop`: If set to `True`, the model will add dropout layers after each layer. If set to `False`, the model will not add dropout layers after each layer. The default is `True`.
+     22. $^*$`if_feed_norm`: If set to `True`, the model will add  normalization layers after each layer. If set to `False`, the model will not add normalization layers after each layer. The default is `True`.
+     23. `start_quarter`: the end quarter of the performance data, which is also the previous quarter of the start quarter of the schedule data. The default is `Q1 2023`.
+     24. `skip_quarters`: The number of quarters to be skipped. The default is 2.
+     25. `validation_type`: The type of validation. The default is `Val`. `Val` means the model will be validated on the validation set. `Test` means the model will be run to predict the test set without the comparison of schedule data.
+     26. `tune`: If set to `True`, the model will be in tuned model. It will run the hyperparameter tuning process. If set to `False`, the model will not be in tuned model. The default is `False`. Unless you want to tune the model, keep this parameter as `False`.
+     27. `use_bn`: If set to `True`, the model will use batch normalization. If set to `False`, the model will use layer normalization. The default is `True`.
+     28. `activation_num`: The type of activation function. The default is 0. `0` means ReLU, `1` means Tanh, `2` means Sigmoid, `3` means ELU, `4` means SiLU, `5` means LeakyReLU. The default is 5.
 
 ## Shortcut Tasks
 
@@ -67,10 +95,15 @@ To execute the model on a local machine:
             "start_year": 2004,
             "checkpoint_file_name": "checkpoint.pth",
             "bidirectional": False, 
-            "if_skip": False, 
+            "if_skip": True, 
             "if_feed_drop": True, 
             "if_feed_norm": True,
             "start_quarter": "Q1 2023",
+            "skip_quarters": 2,
+            "validation_type": "Val",
+            "tune": False,
+            "use_bn": True,
+            "activation_num": 5
         }
         with open('parameters.json', 'w') as f:
             json.dump(parameters, f)
