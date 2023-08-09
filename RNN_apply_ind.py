@@ -350,6 +350,101 @@ class Validation(DatasetFormation):
 
         self.full_df = torch.utils.data.ConcatDataset(datasets)
 
+
+class QuarterFilling:
+    def __init__(self, seq_len, n_future, skip_quarters, on_apply_data=True):
+        self.seq_len = seq_len
+        self.n_future = n_future
+        self.skip_quarters = skip_quarters
+        self.on_apply_data = on_apply_data
+
+    def fill_missing_quarters(self, route_df):
+        # Convert 'Date' to a string format for consistency
+        route_df['Date'] = route_df['Date'].astype(str)
+        quarters = ["Q1", "Q2", "Q3", "Q4"]
+
+        # Define a function to generate the next quarter
+        def next_quarter(q, y):
+            if q == "Q4":
+                return "Q1", y + 1
+            else:
+                next_q = quarters[quarters.index(q) + 1]
+                return next_q, y
+
+        # Generate a list of all quarters present in route_df
+        all_dates = list(route_df['Date'])
+        missing_quarters = []
+
+        # Find missing quarters but not for the last few records
+        if self.on_apply_data:
+            range_end = len(all_dates) - self.skip_quarters - 1
+        else:
+            range_end = len(all_dates) - 1
+
+        for i in range(range_end):
+            q, y = all_dates[i].split()
+            y = int(y)
+            next_q, next_y = next_quarter(q, y)
+
+            if f"{next_q} {next_y}" != all_dates[i + 1]:
+                missing_quarters.append(f"{next_q} {next_y}")
+
+        # Columns that need to have the same values for all rows
+        consistent_columns = ['Mkt Al', 'Orig', 'Dest', 'Miles', 'Alpha', 'g1_o', 'g2_o', 'log_o', 'state_o',
+                            'g1_d', 'g2_d', 'log_d', 'state_d', 'orig_code', 'dest_code', 'al_code',
+                            'orig_lat', 'orig_lon', 'dest_lat', 'dest_lon', 'if_hub', 'al_type']
+
+        # Get the values for these columns from the first row of the DataFrame
+        consistent_values = route_df.loc[0, consistent_columns].to_dict()
+
+        # Fill in the missing quarters
+        for missing in missing_quarters:
+            q, y = missing.split()
+            zero_row = pd.Series({col: -1e10 for col in route_df.columns}, name=missing)
+            zero_row['Date'] = missing
+            # Set all quarter columns to False
+            for i in [1, 2, 3, 4]:
+                zero_row[f'quarter_{i}'] = False
+            zero_row[f'quarter_{quarters.index(q) + 1}'] = True  # Set the correct quarter to true
+
+            # Set consistent values for the specified columns
+            for col, val in consistent_values.items():
+                zero_row[col] = val
+
+            # route_df = route_df.append(zero_row, ignore_index=True)
+            route_df = pd.concat([route_df, pd.DataFrame([zero_row])]).reset_index(drop=True)
+
+        # Sort by Date after adding missing quarters
+        route_df = route_df.sort_values(by="Date").reset_index(drop=True)
+
+        # If length is still less, prepend rows with zeros for previous quarters
+        if self.on_apply_data:
+            range_fill = self.seq_len + self.skip_quarters
+        else:
+            range_fill = self.seq_len
+
+        while len(route_df) < (range_fill):
+            first_q, first_y = route_df.iloc[0]['Date'].split()
+            first_y = int(first_y)
+
+            if first_q == "Q1":
+                prev_q, prev_y = "Q4", first_y - 1
+            else:
+                prev_q = quarters[quarters.index(first_q) - 1]
+                prev_y = first_y
+
+            zero_row = pd.Series({col: -1e10 for col in route_df.columns}, name=f"{prev_q} {prev_y}")
+            zero_row['Date'] = f"{prev_q} {prev_y}"
+            for i in [1, 2, 3, 4]:
+                zero_row[f'quarter_{i}'] = False
+            zero_row[f'quarter_{quarters.index(prev_q) + 1}'] = True  # Set the correct quarter to 1
+
+            for col, val in consistent_values.items():
+                zero_row[col] = val
+            route_df = pd.concat([pd.DataFrame([zero_row]), route_df]).reset_index(drop=True)
+
+        return route_df
+
         
 class FlightDataset(Dataset):
     """
