@@ -1068,6 +1068,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_skip = True
         if_feed_drop = True
         if_feed_norm = True
+        hidden_dim = 300
 
         start_quarter = "Q1 2023" # or "Q4 2022"
         skip_quarters = 2
@@ -1094,6 +1095,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
         if_skip = args.if_skip
         if_feed_drop = args.if_feed_drop
         if_feed_norm = args.if_feed_norm
+        hidden_dim = args.hidden_dim
         
         start_quarter = getattr(args, 'start_quarter', "Q1 2023")
         skip_quarters = getattr(args, 'skip_quarters', 2)
@@ -1162,7 +1164,7 @@ def main_apply(args, folder_path, seats_file_name, perf_file_name, apply_file_na
     input_dim = len(x_features) + int(if_add_time_info) + 4 + skip_quarters
     net = RNNNet(cat_feat=data_format.cat_features, cat_mapping=data_format.cat_mapping,
              embed_dim_mapping=data_format.embed_dim_mapping,
-             input_dim=input_dim, hidden_dim=300, output_dim=pred_num_quarters,
+             input_dim=input_dim, hidden_dim=hidden_dim, output_dim=pred_num_quarters,
              n_layers=n_layers, drop_prob=drop_prob, rnn_type=rnn_type,
              bidirectional=bidirectional, num_heads=num_heads, 
              if_skip=if_skip, if_feed_drop=if_feed_drop, if_feed_norm=if_feed_norm,

@@ -1158,6 +1158,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, tune_folder
         shuffle=True
         fixed_seed=True
         rnn_type="LSTM"
+        hidden_dim = 300
         
         n_layers=4
         drop_prob=0.3
@@ -1198,6 +1199,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, tune_folder
         shuffle = args.shuffle
         fixed_seed = args.fixed_seed
         rnn_type = args.rnn_type
+        hidden_dim = args.hidden_dim
 
         n_layers = args.n_layers
         drop_prob = args.drop_prob
@@ -1271,7 +1273,7 @@ def main_program(args, folder_path, seats_file_name, perf_file_name, tune_folder
     
     net = RNNNet(cat_feat=data_format.cat_features, cat_mapping=data_format.cat_mapping,
              embed_dim_mapping=data_format.embed_dim_mapping,
-             input_dim=input_dim, hidden_dim=300, output_dim=pred_num_quarters,
+             input_dim=input_dim, hidden_dim=hidden_dim, output_dim=pred_num_quarters,
              n_layers=n_layers, drop_prob=drop_prob, rnn_type=rnn_type,
              bidirectional=bidirectional, num_heads=num_heads, 
              if_skip=if_skip, if_feed_drop=if_feed_drop, if_feed_norm=if_feed_norm,
@@ -1333,6 +1335,7 @@ if __name__ == "__main__":
             "shuffle": True,
             "fixed_seed": True,
             "rnn_type": "LSTM",
+            "hidden_dim": 300,
             "n_layers": 4,
             "drop_prob": 0.35,
             "num_heads": 6,

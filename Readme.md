@@ -33,21 +33,22 @@ To train the model, follow these steps:
      11. $^*$`shuffle`: If set to `True`, the data loader will shuffle the data. If set to `False`, the data loader will not shuffle the data. The default is `True`.
      12. $^*$`fixed_seed`: If set to `True`, the random seed will be fixed. If set to `False`, the random seed will not be fixed. The default is `True`.
      13. $^*$`rnn_type`: The type of RNN to be used. The default is `LSTM`.
-     14. `n_layers`: The number of layers for the RNN. The default is 4.
-     15. `drop_prob`: The dropout probability for the RNN and the fully connected layer. The default is 0.35.
-     16. $^*$`num_heads`: The number of heads for the multi-head attention layer. The default is 6.
-     17. $^*$`start_year`: The start year of the training data. The default is 2004 since the data starts from 2004.
-     18. `checkpoint_file_name`: The name of the checkpoint file. The default is `checkpoint_x.pth`. `x` is the number of epochs.
-     19. `bidirectional`: If set to `True`, the RNN will be bidirectional. If set to `False`, the RNN will not be bidirectional. The default is `False`.
-     20. $^*$`if_skip`: If set to `True`, the model will skip the current quarter(s) and only add the scheduled seat data as input features. If set to `False`, the model will not skip the current quarter(s). The default is `True`.
-     21. $^*$`if_feed_drop`: If set to `True`, the model will add dropout layers after each layer. If set to `False`, the model will not add dropout layers after each layer. The default is `True`.
-     22. $^*$`if_feed_norm`: If set to `True`, the model will add  normalization layers after each layer. If set to `False`, the model will not add normalization layers after each layer. The default is `True`.
-     23. `start_quarter`: the end quarter of the performance data, which is also the previous quarter of the start quarter of the schedule data. The default is `Q1 2023`.
-     24. `skip_quarters`: The number of quarters to be skipped. The default is 2.
-     25. `validation_type`: The type of validation. The default is `Val`. `Val` means the model will be validated on the validation set. `Test` means the model will be run to predict the test set without the comparison of schedule data.
-     26. `tune`: If set to `True`, the model will be in tuned model. It will run the hyperparameter tuning process. If set to `False`, the model will not be in tuned model. The default is `False`. Unless you want to tune the model, keep this parameter as `False`.
-     27. `use_bn`: If set to `True`, the model will use batch normalization. If set to `False`, the model will use layer normalization. The default is `True`.
-     28. `activation_num`: The type of activation function. The default is 0. `0` means ReLU, `1` means Tanh, `2` means Sigmoid, `3` means ELU, `4` means SiLU, `5` means LeakyReLU. The default is 5.
+     14. `hidden_dim`: The hidden dimension for the RNN. The default is 300.
+     15. `n_layers`: The number of layers for the RNN. The default is 4.
+     16. `drop_prob`: The dropout probability for the RNN and the fully connected layer. The default is 0.35.
+     17. $^*$`num_heads`: The number of heads for the multi-head attention layer. The default is 6.
+     18. $^*$`start_year`: The start year of the training data. The default is 2004 since the data starts from 2004.
+     19. `checkpoint_file_name`: The name of the checkpoint file. The default is `checkpoint_x.pth`. `x` is the number of epochs.
+     20. `bidirectional`: If set to `True`, the RNN will be bidirectional. If set to `False`, the RNN will not be bidirectional. The default is `False`.
+     21. $^*$`if_skip`: If set to `True`, the model will skip the current quarter(s) and only add the scheduled seat data as input features. If set to `False`, the model will not skip the current quarter(s). The default is `True`.
+     22. $^*$`if_feed_drop`: If set to `True`, the model will add dropout layers after each layer. If set to `False`, the model will not add dropout layers after each layer. The default is `True`.
+     23. $^*$`if_feed_norm`: If set to `True`, the model will add  normalization layers after each layer. If set to `False`, the model will not add normalization layers after each layer. The default is `True`.
+     24. `start_quarter`: the end quarter of the performance data, which is also the previous quarter of the start quarter of the schedule data. The default is `Q1 2023`.
+     25. `skip_quarters`: The number of quarters to be skipped. The default is 2.
+     26. `validation_type`: The type of validation. The default is `Val`. `Val` means the model will be validated on the validation set. `Test` means the model will be run to predict the test set without the comparison of schedule data.
+     27. `tune`: If set to `True`, the model will be in tuned model. It will run the hyperparameter tuning process. If set to `False`, the model will not be in tuned model. The default is `False`. Unless you want to tune the model, keep this parameter as `False`.
+     28. `use_bn`: If set to `True`, the model will use batch normalization. If set to `False`, the model will use layer normalization. The default is `False`.
+     29. `activation_num`: The type of activation function. The default is 0. `0` means ReLU, `1` means Tanh, `2` means Sigmoid, `3` means ELU, `4` means SiLU, `5` means LeakyReLU. The default is 5.
 
 ## Shortcut Tasks
 
@@ -89,6 +90,7 @@ To execute the model on a local machine:
             "shuffle": True,
             "fixed_seed": True,
             "rnn_type": "LSTM",
+            "hidden_dim": 300,
             "n_layers": 4,
             "drop_prob": 0.35,
             "num_heads": 6,
