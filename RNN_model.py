@@ -723,7 +723,7 @@ class FlightDataset(Dataset):
         # "Seats" is the 19th column (0-indexed)
         target_data = df_target_slice["Seats"].values 
 
-        # Return the sequence data and the target value. "Seats" is the 19th column (0-indexed)  
+        # Return the sequence data and the target value. 
         return torch.from_numpy(sequence_data), cat_sequence_data, torch.tensor(target_data), time_range, loc_key
 
 

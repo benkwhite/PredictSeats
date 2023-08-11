@@ -111,3 +111,67 @@ class RNNNet(nn.Module):
         else:
             hidden = weight.new(self.n_layers * num_directions, batch_size, self.hidden_dim).zero_()
         return hidden 
+
+
+##### New Net #####
+class Encoder(nn.Module):
+    def __init__(self, cat_feat, cat_mapping, embed_dim_mapping, input_dim=51, hidden_dim=100, n_layers=2, drop_prob=0.2, bidirectional=True):
+        super(Encoder, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.n_layers = n_layers
+        self.cat_features = cat_feat
+        self.dropout = nn.Dropout(drop_prob)
+        self.bidirect = bidirectional
+
+        # Define the embedding layers for categorical features
+        self.embeddings = nn.ModuleDict({
+            f: nn.Embedding(len(unique_values), embed_dim_mapping[f])
+            for f, unique_values in cat_mapping.items()
+        })
+        
+        # Update the input dimension of the RNN based on the dimensions of the embeddings
+        input_dim += sum(embed_dim_mapping.values()) - len(cat_mapping)
+
+        self.rnn = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True, 
+                            dropout=drop_prob, bidirectional=self.bidirect)
+
+    def forward(self, x, cat_x):
+        x_embed = [self.embeddings[f](cat_x[:, :, i]) for i, f in enumerate(self.cat_features)]
+        x_embed = torch.cat(x_embed, 2)
+        x = torch.cat((x, x_embed), 2)
+        rnn_out, hidden = self.rnn(x)
+        return rnn_out, hidden
+    
+
+class Attention(nn.Module):
+    def __init__(self, hidden_dim):
+        super(Attention, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
+        self.v = nn.Linear(hidden_dim, 1, bias=False)
+
+    def forward(self, hidden, encoder_outputs):
+        attn_weights = torch.tanh(self.attn(torch.cat((hidden[0], encoder_outputs), dim=2)))
+        attention = self.v(attn_weights).squeeze(2)
+        return nn.functional.softmax(attention, dim=1)
+    
+
+class Decoder(nn.Module):
+    def __init__(self, output_dim, hidden_dim, n_layers=2, drop_prob=0.2):
+        super(Decoder, self).__init__()
+        self.output_dim = output_dim
+        self.hidden_dim = hidden_dim
+        self.n_layers = n_layers
+        self.dropout = nn.Dropout(drop_prob)
+
+        self.rnn = nn.LSTM(output_dim, hidden_dim, n_layers, batch_first=True, dropout=drop_prob)
+        self.fc_out = nn.Linear(hidden_dim, output_dim)
+        self.attention = Attention(hidden_dim)
+
+    def forward(self, input, hidden, encoder_outputs):
+        attn_weights = self.attention(hidden, encoder_outputs)
+        context = attn_weights.bmm(encoder_outputs.transpose(0, 1))
+        rnn_input = torch.cat((input, context), 2)
+        output, hidden = self.rnn(rnn_input, hidden)
+        prediction = self.fc_out(output.squeeze(0))
+        return prediction, hidden
