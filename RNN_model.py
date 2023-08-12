@@ -554,13 +554,20 @@ class DatasetFormation():
             datasets = []
             for _, route_df in self.scaled_df.groupby(["Mkt Al", "Orig", "Dest"]):
                 # Only pass routes with enough data or data has few missing quarters.
-                if len(route_df) < (self.seq_len + self.n_future + self.skip_quarters - 3):
+                if len(route_df) < (self.seq_len + self.n_future + self.skip_quarters):
                     continue
+                route_df = route_df.sort_values("Date_delta")
+                filled_route_df = route_df.copy()
                 
-                filled_route_df = quarter_filler.fill_missing_quarters(route_df)
-                filled_route_df['SortDate'] = filled_route_df['Date'].apply(lambda x: int(x.split(' ')[1]) * 4 + int(x.split(' ')[0][1]))
-                filled_route_df = filled_route_df.sort_values(by="SortDate").reset_index(drop=True)
-                # route_df = route_df.sort_values("Date_delta")
+                ### Has not test ###
+                # if len(route_df) < (self.seq_len + self.n_future + self.skip_quarters - 3):
+                #     continue
+                # filled_route_df = quarter_filler.fill_missing_quarters(route_df)
+                # filled_route_df['SortDate'] = filled_route_df['Date'].apply(lambda x: int(x.split(' ')[1]) * 4 + int(x.split(' ')[0][1]))
+                # filled_route_df = filled_route_df.sort_values(by="SortDate").reset_index(drop=True)
+                ####################
+
+                
 
                 datasets.append(FlightDataset(filled_route_df, self.seq_len, self.num_features, 
                                               self.cat_features, self.skip_quarters,
